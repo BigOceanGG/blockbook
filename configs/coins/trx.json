@@ -48,8 +48,8 @@
     "block_chain": {
       "parse": true,
       "subversion": "",
-      "mempool_workers": 8,
-      "mempool_sub_workers": 2,
+      "mempool_workers": 1,
+      "mempool_sub_workers": 1,
       "block_addresses_to_keep": 300,
       "slip44": 145,
       "additional_params": {

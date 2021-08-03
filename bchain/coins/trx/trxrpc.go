@@ -4,27 +4,29 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/golang/glog"
 	"github.com/juju/errors"
 	"github.com/trezor/blockbook/bchain"
+	"github.com/trezor/blockbook/common"
 	"io"
 	"io/ioutil"
 	"math/big"
 	"net"
 	"net/http"
 	"runtime/debug"
+	"strconv"
 	"time"
 )
 
 type Configuration struct {
-	CoinName            string `json:"coin_name"`
-	CoinShortcut        string `json:"coin_shortcut"`
-	RPCURL              string `json:"rpc_url"`
-	RPCTimeout          int    `json:"rpc_timeout"`
-	MessageQueueBinding string `json:"message_queue_binding"`
-	MempoolWorkers      int    `json:"mempool_workers"`
-	MempoolSubWorkers   int    `json:"mempool_sub_workers"`
+	CoinName             string `json:"coin_name"`
+	CoinShortcut         string `json:"coin_shortcut"`
+	RPCURL               string `json:"rpc_url"`
+	RPCTimeout           int    `json:"rpc_timeout"`
+	MessageQueueBinding  string `json:"message_queue_binding"`
+	MempoolWorkers       int    `json:"mempool_workers"`
+	MempoolSubWorkers    int    `json:"mempool_sub_workers"`
+	BlockAddressesToKeep int    `json:"block_addresses_to_keep"`
 }
 
 type TrxRPC struct {
@@ -37,15 +39,37 @@ type TrxRPC struct {
 	ChainConfig *Configuration
 }
 
+type TrxTx struct {
+	TxID string `json:"txID"`
+}
+
+type TrxTxResult struct {
+	Result  bool   `json:"result"`
+	Code    string `json:"code"`
+	Txid    string `json:"txid"`
+	Message string `json:"message"`
+}
+
+type TrxTransaction struct {
+	Id             string `json:"id"`
+	Fee            uint32 `json:"fee"`
+	BlockNumber    uint32 `json:"blockNumber"`
+	BlockTimeStamp int64  `json:"blockTimeStamp"`
+}
+
 type TrxBlock struct {
 	BlockID      string `json:"blockID"`
 	Block_header struct {
 		Raw_data struct {
 			Number     uint32 `json:"number"`
 			ParentHash string `json:"parentHash"`
+			TxTrieRoot string `json:"txTrieRoot"`
 			Timestamp  int64  `json:"timestamp"`
+			Version    int    `json:"version"`
 		} `json:"raw_data"`
 	} `json:"block_header"`
+
+	Transactions []TrxTx `json:"transactions"`
 }
 
 func safeDecodeResponse(body io.ReadCloser, res interface{}) (err error) {
@@ -89,6 +113,8 @@ func NewTrxRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)
 		ChainConfig: &c,
 		pushHandler: pushHandler,
 	}
+
+	s.Parser = NewTrxParser(c.BlockAddressesToKeep)
 
 	return s, nil
 }
@@ -151,7 +177,41 @@ func (b *TrxRPC) GetBestBlockHeight() (uint32, error) {
 }
 
 func (b *TrxRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
-	return nil, nil
+	if hash == "" {
+		h, err := b.GetBlockHash(height)
+		if err != nil {
+			return nil, err
+		}
+		hash = h
+	}
+	req := make(map[string]interface{})
+	req["value"] = hash
+
+	var block TrxBlock
+	err := b.PostCall("/wallet/getblockbyid", req, &block)
+	if err != nil {
+		return nil, err
+	}
+	confirmations, err := b.computeConfirmations(block.Block_header.Raw_data.Number)
+	if err != nil {
+		return nil, err
+	}
+	var cblock bchain.Block
+	cblock.BlockHeader = bchain.BlockHeader{
+		Hash:          block.BlockID,
+		Prev:          block.Block_header.Raw_data.ParentHash,
+		Height:        block.Block_header.Raw_data.Number,
+		Confirmations: int(confirmations),
+		Time:          block.Block_header.Raw_data.Timestamp,
+	}
+
+	for _, tx := range block.Transactions {
+		cblock.Txs = append(cblock.Txs, bchain.Tx{
+			Txid: tx.TxID,
+		})
+	}
+
+	return &cblock, nil
 }
 
 func (b *TrxRPC) GetBlockHash(height uint32) (string, error) {
@@ -183,21 +243,47 @@ func (b *TrxRPC) GetBlockHeader(hash string) (*bchain.BlockHeader, error) {
 		Hash:          block.BlockID,
 		Prev:          block.Block_header.Raw_data.ParentHash,
 		Height:        block.Block_header.Raw_data.Number,
-		Confirmations: confirmations,
+		Confirmations: int(confirmations),
 		Time:          block.Block_header.Raw_data.Timestamp,
 	}, nil
 }
 
-func (b *TrxRPC) computeConfirmations(n uint32) (int, error) {
+func (b *TrxRPC) computeConfirmations(n uint32) (uint32, error) {
 	bh, err := b.GetBestBlockHeight()
 	if err != nil {
 		return 0, err
 	}
 	// transaction in the best block has 1 confirmation
-	return int(bh - n + 1), nil
+	return bh - n + 1, nil
 }
 
 func (b *TrxRPC) GetBlockInfo(hash string) (*bchain.BlockInfo, error) {
+	req := make(map[string]interface{})
+	req["value"] = hash
+
+	var block TrxBlock
+	err := b.PostCall("/wallet/getblockbyid", req, &block)
+	if err != nil {
+		return nil, err
+	}
+	confirmations, err := b.computeConfirmations(block.Block_header.Raw_data.Number)
+	if err != nil {
+		return nil, err
+	}
+	var blockInfo bchain.BlockInfo
+	blockInfo.BlockHeader = bchain.BlockHeader{
+		Hash:          block.BlockID,
+		Prev:          block.Block_header.Raw_data.ParentHash,
+		Height:        block.Block_header.Raw_data.Number,
+		Confirmations: int(confirmations),
+		Time:          block.Block_header.Raw_data.Timestamp,
+	}
+
+	blockInfo.Version = common.JSONNumber(strconv.Itoa(block.Block_header.Raw_data.Version))
+	blockInfo.MerkleRoot = block.Block_header.Raw_data.TxTrieRoot
+	for _, tx := range block.Transactions {
+		blockInfo.Txids = append(blockInfo.Txids, tx.TxID)
+	}
 	return nil, nil
 }
 
@@ -206,11 +292,35 @@ func (b *TrxRPC) GetMempoolTransactions() ([]string, error) {
 }
 
 func (b *TrxRPC) GetTransaction(txid string) (*bchain.Tx, error) {
-	return nil, nil
+	req := make(map[string]interface{})
+	req["value"] = txid
+
+	var tx TrxTransaction
+	err := b.PostCall("/wallet/gettransactioninfobyid", req, &tx)
+	if err != nil {
+		return nil, err
+	}
+	confirmations, err := b.computeConfirmations(tx.BlockNumber)
+	if err != nil {
+		return nil, err
+	}
+	return &bchain.Tx{
+		Txid:          txid,
+		BlockHeight:   tx.BlockNumber,
+		Confirmations: confirmations,
+		Time:          tx.BlockTimeStamp,
+	}, nil
 }
 
 func (b *TrxRPC) GetChainInfo() (*bchain.ChainInfo, error) {
-	return nil, nil
+	hash, err := b.GetBestBlockHash()
+	if err != nil {
+		return nil, err
+	}
+	return &bchain.ChainInfo{
+		Bestblockhash: hash,
+		Chain:         b.ChainConfig.CoinName,
+	}, nil
 }
 
 func (b *TrxRPC) GetSubversion() string {
@@ -218,11 +328,11 @@ func (b *TrxRPC) GetSubversion() string {
 }
 
 func (b *TrxRPC) GetCoinName() string {
-	return ""
+	return b.ChainConfig.CoinName
 }
 
 func (b *TrxRPC) GetTransactionForMempool(txid string) (*bchain.Tx, error) {
-	return nil, nil
+	return b.GetTransaction(txid)
 }
 
 func (b *TrxRPC) GetTransactionSpecific(tx *bchain.Tx) (json.RawMessage, error) {
@@ -233,16 +343,31 @@ func (b *TrxRPC) Initialize() error {
 	//fmt.Println(b.GetBestBlockHeight())
 	//fmt.Println(b.GetBestBlockHash())
 	//fmt.Println(b.GetBlockHash(32494927))
-	fmt.Println(b.GetBlockHeader("0000000001efd54f1668d169d342410e3e5d2c5e8aec17f71cae48bbd0758ab1"))
+	//fmt.Println(b.GetBlockInfo("0000000001efd54f1668d169d342410e3e5d2c5e8aec17f71cae48bbd0758ab1"))
 	return nil
 }
 
 func (b *TrxRPC) Shutdown(ctx context.Context) error {
+	if b.mq != nil {
+		if err := b.mq.Shutdown(ctx); err != nil {
+			glog.Error("MQ.Shutdown error: ", err)
+			return err
+		}
+	}
 	return nil
 }
 
 func (b *TrxRPC) SendRawTransaction(tx string) (string, error) {
-	return "", nil
+	req := make(map[string]interface{})
+	req["transaction"] = tx
+
+	var txResult TrxTxResult
+	err := b.PostCall("/wallet/broadcasthex", req, &txResult)
+	if err != nil {
+		return "", err
+	}
+
+	return txResult.Txid, nil
 }
 
 func (b *TrxRPC) PostCall(url string, req interface{}, res interface{}) error {
@@ -306,4 +431,8 @@ func (b *TrxRPC) GetCall(url string, req map[string]string, res interface{}) err
 		return nil
 	}
 	return safeDecodeResponse(httpRes.Body, &res)
+}
+
+func (b *TrxRPC) GetChainParser() bchain.BlockChainParser {
+	return b.Parser
 }
