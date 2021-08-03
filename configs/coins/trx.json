@@ -51,11 +51,7 @@
       "mempool_workers": 1,
       "mempool_sub_workers": 1,
       "block_addresses_to_keep": 300,
-      "slip44": 145,
-      "additional_params": {
-        "fiat_rates": "coingecko",
-        "fiat_rates_params": "{\"url\": \"https://api.coingecko.com/api/v3\", \"coin\": \"trx\", \"periodSeconds\": 60}"
-      }
+      "slip44": 145
     }
   },
   "meta": {

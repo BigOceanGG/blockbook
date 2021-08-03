@@ -32,3 +32,7 @@ func (p *TrxParser) GetAddressesFromAddrDesc(addrDesc bchain.AddressDescriptor) 
 func (p *TrxParser) GetScriptFromAddrDesc(addrDesc bchain.AddressDescriptor) ([]byte, error) {
 	return addrDesc, nil
 }
+
+func (p *TrxParser) GetChainType() bchain.ChainType {
+	return bchain.ChainEthereumType
+}

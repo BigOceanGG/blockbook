@@ -284,7 +284,7 @@ func (b *TrxRPC) GetBlockInfo(hash string) (*bchain.BlockInfo, error) {
 	for _, tx := range block.Transactions {
 		blockInfo.Txids = append(blockInfo.Txids, tx.TxID)
 	}
-	return nil, nil
+	return &blockInfo, nil
 }
 
 func (b *TrxRPC) GetMempoolTransactions() ([]string, error) {
