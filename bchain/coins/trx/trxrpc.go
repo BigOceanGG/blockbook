@@ -39,8 +39,27 @@ type TrxRPC struct {
 	ChainConfig *Configuration
 }
 
+type TrxContract struct {
+	Parameter struct {
+		Type_url string `json:"type_url"`
+		Value    struct {
+			Amount           int    `json:"amount"`
+			Asset_name       string `json:"asset_name"`
+			Owner_address    string `json:"owner_address"`
+			To_address       string `json:"to_address"`
+			Contract_address string `json:"contract_address"`
+			Data             string `json:"data"`
+		} `json:"value"`
+	} `json:"parameter"`
+	Type string `json:"type"`
+}
+
 type TrxTx struct {
-	TxID string `json:"txID"`
+	TxID     string `json:"txID"`
+	Raw_data struct {
+		Data     string        `json:"data"`
+		Contract []TrxContract `json:"contract"`
+	} `json:"raw_data"`
 }
 
 type TrxTxResult struct {

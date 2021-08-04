@@ -9,6 +9,10 @@ type TrxParser struct {
 	*bchain.BaseParser
 }
 
+func has0xPrefix(s string) bool {
+	return len(s) >= 2 && s[0] == '0' && (s[1]|32) == 'x'
+}
+
 // NewEthereumParser returns new EthereumParser instance
 func NewTrxParser(b int) *TrxParser {
 	return &TrxParser{&bchain.BaseParser{
@@ -35,4 +39,11 @@ func (p *TrxParser) GetScriptFromAddrDesc(addrDesc bchain.AddressDescriptor) ([]
 
 func (p *TrxParser) GetChainType() bchain.ChainType {
 	return bchain.ChainEthereumType
+}
+
+func (p *TrxParser) PackTxid(txid string) ([]byte, error) {
+	if has0xPrefix(txid) {
+		txid = txid[2:]
+	}
+	return hex.DecodeString(txid)
 }
