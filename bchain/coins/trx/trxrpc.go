@@ -133,7 +133,7 @@ func NewTrxRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)
 		pushHandler: pushHandler,
 	}
 
-	s.Parser = NewTrxParser(c.BlockAddressesToKeep)
+	s.Parser = NewTrxParser(c.BlockAddressesToKeep, s)
 
 	return s, nil
 }
