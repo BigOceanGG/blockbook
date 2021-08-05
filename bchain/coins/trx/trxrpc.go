@@ -37,6 +37,7 @@ type TrxRPC struct {
 	mq          *bchain.MQ
 	Mempool     *bchain.MempoolBitcoinType
 	ChainConfig *Configuration
+	Parser      *TrxParser
 }
 
 type TrxContract struct {
@@ -60,6 +61,8 @@ type TrxTx struct {
 		Data     string        `json:"data"`
 		Contract []TrxContract `json:"contract"`
 	} `json:"raw_data"`
+
+	CoinSpecificData interface{} `json:"-"`
 }
 
 type TrxTxResult struct {
@@ -355,7 +358,27 @@ func (b *TrxRPC) GetTransactionForMempool(txid string) (*bchain.Tx, error) {
 }
 
 func (b *TrxRPC) GetTransactionSpecific(tx *bchain.Tx) (json.RawMessage, error) {
-	return nil, nil
+	csd, ok := tx.CoinSpecificData.(SpecificTransaction)
+	if !ok {
+		req := make(map[string]interface{})
+		req["value"] = tx.Txid
+
+		var transaction TrxTx
+		err := b.PostCall("/wallet/gettransactionbyid", req, &transaction)
+		if err != nil {
+			return nil, err
+		}
+		tx.CoinSpecificData, err = b.Parser.trxtotx(transaction)
+		if err != nil {
+			return nil, err
+		}
+		csd, ok = tx.CoinSpecificData.(SpecificTransaction)
+		if !ok {
+			return nil, errors.New("Cannot get CoinSpecificData")
+		}
+	}
+	m, err := json.Marshal(&csd)
+	return json.RawMessage(m), err
 }
 
 func (b *TrxRPC) Initialize() error {

@@ -436,6 +436,7 @@ func (w *SyncWorker) getBlockChain(out chan blockResult, done chan struct{}) {
 			out <- blockResult{err: errFork}
 			return
 		}
+		glog.Info("sync ", block.BlockHeader.Height)
 		prevHash = block.Hash
 		hash = block.Next
 		height++

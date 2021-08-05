@@ -8,14 +8,28 @@ import (
 
 type TrxParser struct {
 	*bchain.BaseParser
-	rpc TrxRPC
+	rpc *TrxRPC
 }
 
 type TriggerContract struct {
-	Constant_result []string `json:"constant_result"`
+	Constant_result *[]string `json:"constant_result"`
 	Result          struct {
 		Result bool `json:"result"`
 	} `json:"result"`
+}
+
+type TrxSpecificContract struct {
+	Owner_address    string `json:"owner_address"`
+	Contract_address string `json:"contract_address"`
+	Type             string `json:"type"`
+	Name             string `json:"name"`
+	Symbol           string `json:"symbol"`
+	Decimals         int    `json:"decimals"`
+}
+
+type SpecificTransaction struct {
+	TxID             string                `json:"txID"`
+	SpecificContract []TrxSpecificContract `json:"specificcontract"`
 }
 
 func has0xPrefix(s string) bool {
@@ -23,7 +37,7 @@ func has0xPrefix(s string) bool {
 }
 
 // NewEthereumParser returns new EthereumParser instance
-func NewTrxParser(b int, rpc TrxRPC) *TrxParser {
+func NewTrxParser(b int, rpc *TrxRPC) *TrxParser {
 	return &TrxParser{&bchain.BaseParser{
 		BlockAddressesToKeep: b,
 		AmountDecimalPoint:   18,
@@ -67,7 +81,7 @@ func (p *TrxParser) GetContract(owner_address, contract_address, function_select
 	if err != nil {
 		return nil, err
 	}
-	return &trigger, nil
+	return trigger, nil
 }
 
 func (p *TrxParser) GetAddrDescFromAddress(address string) (bchain.AddressDescriptor, error) {
@@ -95,4 +109,54 @@ func (p *TrxParser) PackTxid(txid string) ([]byte, error) {
 		txid = txid[2:]
 	}
 	return hex.DecodeString(txid)
+}
+
+func (p *TrxParser) EthereumTypeGetErc20FromTx(tx *bchain.Tx) ([]bchain.Erc20Transfer, error) {
+	var r []bchain.Erc20Transfer
+	return r, nil
+}
+
+func (p *TrxParser) trxtotx(tx TrxTx) (SpecificTransaction, error) {
+	var specific SpecificTransaction
+	specific.TxID = tx.TxID
+	for _, raw := range tx.Raw_data.Contract {
+		var specificContract TrxSpecificContract
+		specificContract.Owner_address = raw.Parameter.Value.Owner_address
+		specificContract.Contract_address = raw.Parameter.Value.Contract_address
+		specificContract.Type = raw.Type
+		if raw.Parameter.Value.Owner_address != "" && raw.Parameter.Value.Contract_address != "" {
+			t1, err := p.GetContract(raw.Parameter.Value.Owner_address, raw.Parameter.Value.Contract_address, "name()")
+			if err != nil {
+				return SpecificTransaction{}, err
+			}
+			if t1.(TriggerContract).Constant_result != nil {
+				for _, res := range *t1.(TriggerContract).Constant_result {
+					specificContract.Name = getResult(res)
+				}
+			}
+			t2, err := p.GetContract(raw.Parameter.Value.Owner_address, raw.Parameter.Value.Contract_address, "symbol()")
+			if err != nil {
+				return SpecificTransaction{}, err
+			}
+			if t2.(TriggerContract).Constant_result != nil {
+				for _, res := range *t2.(TriggerContract).Constant_result {
+					specificContract.Symbol = getResult(res)
+				}
+			}
+			t3, err := p.GetContract(raw.Parameter.Value.Owner_address, raw.Parameter.Value.Contract_address, "decimals()")
+			if err != nil {
+				return SpecificTransaction{}, err
+			}
+			if t3.(TriggerContract).Constant_result != nil {
+				for _, res := range *t3.(TriggerContract).Constant_result {
+					decimals, _ := strconv.Atoi(getResult(res))
+					specificContract.Decimals = decimals
+				}
+			}
+		}
+
+		specific.SpecificContract = append(specific.SpecificContract, specificContract)
+	}
+
+	return specific, nil
 }
