@@ -207,6 +207,36 @@ func (w *SyncWorker) handleFork(localBestHeight uint32, localBestHash string, on
 	return w.resyncIndex(onNewBlock, initialSync)
 }
 
+func (w *SyncWorker) notify(hash string, height uint32) {
+	mempool, err := w.chain.CreateMempool(w.chain)
+	if err != nil {
+		glog.Error(err)
+		return
+	}
+
+	block, err := w.chain.GetBlockInfo(hash)
+	if err != nil {
+		glog.Error(err)
+		return
+	}
+
+	for _, txid := range block.Txids {
+		tx, err := w.chain.GetTransaction(txid)
+		if err != nil {
+			glog.Error("cannot get transaction ", txid, ": ", err)
+			continue
+		}
+		chainType := w.chain.GetChainParser().GetChainType()
+		if chainType == bchain.ChainEthereumType {
+			mempool.(*bchain.MempoolEthereumType).Notify(txid, height)
+		} else if chainType == bchain.ChainBitcoinType {
+			mempool.(*bchain.MempoolBitcoinType).Notify(tx, height)
+		} else {
+			glog.Error("Unknown chain type")
+		}
+	}
+}
+
 func (w *SyncWorker) connectBlocks(onNewBlock bchain.OnNewBlockFunc, initialSync bool) error {
 	bch := make(chan blockResult, 8)
 	done := make(chan struct{})
@@ -228,6 +258,7 @@ func (w *SyncWorker) connectBlocks(onNewBlock bchain.OnNewBlockFunc, initialSync
 		if onNewBlock != nil {
 			onNewBlock(res.block.Hash, res.block.Height)
 		}
+``		w.notify(res.block.Hash, res.block.Height)
 		w.metrics.BlockbookBestHeight.Set(float64(res.block.Height))
 		if res.block.Height > 0 && res.block.Height%1000 == 0 {
 			glog.Info("connected block ", res.block.Height, " ", res.block.Hash)

@@ -109,6 +109,7 @@ type MempoolTx struct {
 	Vin              []MempoolVin    `json:"vin"`
 	Vout             []Vout          `json:"vout"`
 	Blocktime        int64           `json:"blocktime,omitempty"`
+	Blockheight      uint32          `json:"blockHeight"`
 	Erc20            []Erc20Transfer `json:"-"`
 	CoinSpecificData interface{}     `json:"-"`
 }

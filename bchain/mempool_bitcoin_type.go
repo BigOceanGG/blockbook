@@ -87,6 +87,31 @@ func (m *MempoolBitcoinType) getInputAddress(payload *chanInputPayload) *addrInd
 
 }
 
+func (m *MempoolBitcoinType) Notify(tx *Tx, height uint32) {
+	if len(tx.Vin) == 1 && len(tx.Vin[0].Coinbase) > 0 {
+		return
+	}
+	mtx := MempoolTx{
+		Hex:              tx.Hex,
+		Blocktime:        time.Now().Unix(),
+		LockTime:         tx.LockTime,
+		Txid:             tx.Txid,
+		Version:          tx.Version,
+		Vout:             tx.Vout,
+		CoinSpecificData: tx.CoinSpecificData,
+		Vin:              make([]MempoolVin, len(tx.Vin)),
+		Blockheight:      height,
+	}
+	for i, vin := range tx.Vin {
+		mtx.Vin[i] = MempoolVin{
+			Vin: vin,
+		}
+	}
+	if m.OnNewTx != nil {
+		m.OnNewTx(&mtx)
+	}
+}
+
 func (m *MempoolBitcoinType) getTxAddrs(txid string, chanInput chan chanInputPayload, chanResult chan *addrIndex) ([]addrIndex, bool) {
 	tx, err := m.chain.GetTransactionForMempool(txid)
 	if err != nil {
