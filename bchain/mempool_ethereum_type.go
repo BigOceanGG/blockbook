@@ -45,14 +45,7 @@ func appendAddress(io []addrIndex, i int32, a string, parser BlockChainParser) (
 	return io, addrDesc
 }
 
-func (m *MempoolEthereumType) Notify(txid string, height uint32) {
-	tx, err := m.chain.GetTransaction(txid)
-	if err != nil {
-		if err != ErrTxNotFound {
-			glog.Warning("cannot get transaction ", txid, ": ", err)
-		}
-		return
-	}
+func (m *MempoolEthereumType) Notify(tx *Tx, txid string, height uint32) {
 	mtx := m.txToMempoolTx(tx)
 	mtx.Blockheight = height
 	parser := m.chain.GetChainParser()

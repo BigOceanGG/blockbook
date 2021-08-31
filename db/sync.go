@@ -228,7 +228,7 @@ func (w *SyncWorker) notify(hash string, height uint32) {
 		}
 		chainType := w.chain.GetChainParser().GetChainType()
 		if chainType == bchain.ChainEthereumType {
-			mempool.(*bchain.MempoolEthereumType).Notify(txid, height)
+			mempool.(*bchain.MempoolEthereumType).Notify(tx, txid, height)
 		} else if chainType == bchain.ChainBitcoinType {
 			mempool.(*bchain.MempoolBitcoinType).Notify(tx, height)
 		} else {

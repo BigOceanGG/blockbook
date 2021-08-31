@@ -91,24 +91,11 @@ func (m *MempoolBitcoinType) Notify(tx *Tx, height uint32) {
 	if len(tx.Vin) == 1 && len(tx.Vin[0].Coinbase) > 0 {
 		return
 	}
-	mtx := MempoolTx{
-		Hex:              tx.Hex,
-		Blocktime:        time.Now().Unix(),
-		LockTime:         tx.LockTime,
-		Txid:             tx.Txid,
-		Version:          tx.Version,
-		Vout:             tx.Vout,
-		CoinSpecificData: tx.CoinSpecificData,
-		Vin:              make([]MempoolVin, len(tx.Vin)),
-		Blockheight:      height,
-	}
-	for i, vin := range tx.Vin {
-		mtx.Vin[i] = MempoolVin{
-			Vin: vin,
-		}
-	}
+	mtx := m.txToMempoolTx(tx)
+	mtx.Blockheight = height
+
 	if m.OnNewTx != nil {
-		m.OnNewTx(&mtx)
+		m.OnNewTx(mtx)
 	}
 }
 
