@@ -258,7 +258,7 @@ func (w *SyncWorker) connectBlocks(onNewBlock bchain.OnNewBlockFunc, initialSync
 		if onNewBlock != nil {
 			onNewBlock(res.block.Hash, res.block.Height)
 		}
-``		w.notify(res.block.Hash, res.block.Height)
+		w.notify(res.block.Hash, res.block.Height)
 		w.metrics.BlockbookBestHeight.Set(float64(res.block.Height))
 		if res.block.Height > 0 && res.block.Height%1000 == 0 {
 			glog.Info("connected block ", res.block.Height, " ", res.block.Hash)
