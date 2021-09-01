@@ -6,7 +6,7 @@
     "alias": "ethereum"
   },
   "ports": {
-    "backend_rpc": 8036,
+    "backend_rpc": 8546,
     "backend_message_queue": 0,
     "backend_p2p": 38336,
     "backend_http": 8136,
@@ -51,9 +51,7 @@
       "block_addresses_to_keep": 300,
       "additional_params": {
         "mempoolTxTimeoutHours": 48,
-        "queryBackendOnMempoolResync": false,
-        "fiat_rates": "coingecko",
-        "fiat_rates_params": "{\"url\": \"https://api.coingecko.com/api/v3\", \"coin\": \"ethereum\", \"periodSeconds\": 60}"
+        "queryBackendOnMempoolResync": false
       }
     }
   },

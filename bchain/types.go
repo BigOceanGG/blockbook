@@ -19,6 +19,8 @@ const (
 	ChainBitcoinType = ChainType(iota)
 	// ChainEthereumType is blockchain derived from ethereum
 	ChainEthereumType
+	// ChainTronType is blockchain derived from tron
+	ChainTronType
 )
 
 // errors with specific meaning returned by blockchain rpc

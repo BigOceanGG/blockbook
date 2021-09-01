@@ -101,7 +101,7 @@ func (p *TrxParser) GetScriptFromAddrDesc(addrDesc bchain.AddressDescriptor) ([]
 }
 
 func (p *TrxParser) GetChainType() bchain.ChainType {
-	return bchain.ChainEthereumType
+	return bchain.ChainTronType
 }
 
 func (p *TrxParser) PackTxid(txid string) ([]byte, error) {
