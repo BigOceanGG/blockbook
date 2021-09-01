@@ -27,6 +27,9 @@ type Configuration struct {
 	MempoolWorkers       int    `json:"mempool_workers"`
 	MempoolSubWorkers    int    `json:"mempool_sub_workers"`
 	BlockAddressesToKeep int    `json:"block_addresses_to_keep"`
+
+	MempoolTxTimeoutHours       int  `json:"mempoolTxTimeoutHours"`
+	QueryBackendOnMempoolResync bool `json:"queryBackendOnMempoolResync"`
 }
 
 type TrxRPC struct {
@@ -35,7 +38,7 @@ type TrxRPC struct {
 	rpcURL      string
 	pushHandler func(bchain.NotificationType)
 	mq          *bchain.MQ
-	Mempool     *bchain.MempoolBitcoinType
+	Mempool     *bchain.MempoolEthereumType
 	ChainConfig *Configuration
 	Parser      *TrxParser
 }
@@ -144,7 +147,7 @@ func NewTrxRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)
 // CreateMempool creates mempool if not already created, however does not initialize it
 func (b *TrxRPC) CreateMempool(chain bchain.BlockChain) (bchain.Mempool, error) {
 	if b.Mempool == nil {
-		b.Mempool = bchain.NewMempoolBitcoinType(chain, b.ChainConfig.MempoolWorkers, b.ChainConfig.MempoolSubWorkers)
+		b.Mempool = bchain.NewMempoolEthereumType(chain, b.ChainConfig.MempoolTxTimeoutHours, b.ChainConfig.QueryBackendOnMempoolResync)
 	}
 	return b.Mempool, nil
 }
@@ -154,7 +157,6 @@ func (b *TrxRPC) InitializeMempool(addrDescForOutpoint bchain.AddrDescForOutpoin
 	if b.Mempool == nil {
 		return errors.New("Mempool not created")
 	}
-	b.Mempool.AddrDescForOutpoint = addrDescForOutpoint
 	b.Mempool.OnNewTxAddr = onNewTxAddr
 	b.Mempool.OnNewTx = onNewTx
 	if b.mq == nil {
