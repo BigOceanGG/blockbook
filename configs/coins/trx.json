@@ -12,7 +12,7 @@
     "blockbook_public": 9197
   },
   "ipc": {
-    "rpc_url_template": "https://api.trongrid.io",
+    "rpc_url_template": "grpc.trongrid.io:50051",
     "rpc_timeout": 25,
     "message_queue_binding_template": "tcp://127.0.0.1:{{.Ports.BackendMessageQueue}}"
   },

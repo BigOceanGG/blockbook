@@ -482,7 +482,7 @@ func (d *RocksDB) ConnectBlock(block *bchain.Block) error {
 		}
 	} else if chainType == bchain.ChainTronType {
 		addressContracts := make(map[string]*AddrContracts)
-		blockTxs, err := d.processAddressesTronType(block, addresses, addressContracts)
+		blockTxs, err := d.processAddressesAndContractsTronType(block, addresses, addressContracts)
 		if err != nil {
 			return err
 		}

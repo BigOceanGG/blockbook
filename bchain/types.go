@@ -221,6 +221,13 @@ type Erc20Transfer struct {
 	Tokens   big.Int
 }
 
+type Trc20Transfer struct {
+	Contract string
+	From     string
+	To       string
+	Tokens   big.Int
+}
+
 // MempoolTxidEntry contains mempool txid with first seen time
 type MempoolTxidEntry struct {
 	Txid string
@@ -325,6 +332,7 @@ type BlockChainParser interface {
 	DeriveAddressDescriptorsFromTo(xpub string, change uint32, fromIndex uint32, toIndex uint32) ([]AddressDescriptor, error)
 	// EthereumType specific
 	EthereumTypeGetErc20FromTx(tx *Tx) ([]Erc20Transfer, error)
+	TronTypeGetTrc20FromTx(tx *Tx) ([]Trc20Transfer, error)
 }
 
 // Mempool defines common interface to mempool
