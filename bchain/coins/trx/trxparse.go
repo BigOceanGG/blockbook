@@ -115,8 +115,8 @@ func (p *TrxParser) TronTypeGetTrc20FromTx(tx *bchain.Tx) ([]bchain.Trc20Transfe
 			trc.Contract = hex.EncodeToString(data.ContractAddress)
 			trc.To = hex.EncodeToString(data.ContractAddress)
 			trc.Tokens = *big.NewInt(0)
+			trcs = append(trcs, trc)
 		}
-		trcs = append(trcs, trc)
 	}
 	return trcs, nil
 }

@@ -34,7 +34,6 @@ func (d *RocksDB) GetTronAddrDescContracts(addrDesc bchain.AddressDescriptor) (*
 	buf = buf[l:]
 	c := make([]AddrContract, 0, 4)
 	for len(buf) > 0 {
-		glog.Info(len(buf))
 		if len(buf) < trx.TronTypeAddressDescriptorLen {
 			return nil, errors.New("Invalid data stored in cfAddressContracts for AddrDesc " + addrDesc.String())
 		}
@@ -127,11 +126,7 @@ func (d *RocksDB) processAddressesAndContractsTronType(block *bchain.Block, addr
 		if err != nil {
 			glog.Warningf("rocksdb: GetErc20FromTx %v - height %d, tx %v", err, block.Height, tx.Txid)
 		}
-		//blockTx.contracts = make([]ethBlockTxContract, len(erc20)*2)
 		for _, t := range trc20 {
-			if t.Contract == "" {
-				continue
-			}
 			var contract, from, to bchain.AddressDescriptor
 			contract, err = d.chainParser.GetAddrDescFromAddress(t.Contract)
 			if err == nil {
