@@ -8,6 +8,25 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 )
 
+func getContractInfo(contractType core.Transaction_Contract_ContractType, parameter *any.Any) (interface{}, error) {
+	switch contractType {
+	case core.Transaction_Contract_TransferContract:
+		var c core.TransferContract
+		if err := ptypes.UnmarshalAny(parameter, &c); err != nil {
+			return nil, fmt.Errorf("Tx inconsistent")
+		}
+		return c, nil
+	case core.Transaction_Contract_TriggerSmartContract:
+		var c core.TriggerSmartContract
+		if err := ptypes.UnmarshalAny(parameter, &c); err != nil {
+			return nil, fmt.Errorf("Tx inconsistent")
+		}
+		return c, nil
+	default:
+		return nil, fmt.Errorf("Tx inconsistent")
+	}
+}
+
 func getContract(contractType core.Transaction_Contract_ContractType, parameter *any.Any) (map[string]interface{}, error) {
 	switch contractType {
 	case core.Transaction_Contract_AccountCreateContract:

@@ -3,9 +3,9 @@ package trx
 import (
 	"encoding/hex"
 	"github.com/fbsobreira/gotron-sdk/pkg/proto/api"
+	"github.com/fbsobreira/gotron-sdk/pkg/proto/core"
 	"github.com/trezor/blockbook/bchain"
 	"math/big"
-	"strconv"
 )
 
 const TronTypeAddressHexLen = 42
@@ -17,8 +17,9 @@ type TrxParser struct {
 }
 
 type trxCompleteTransaction struct {
-	Tx    *api.TransactionExtention `json:"tx"`
-	Value map[string]interface{}    `json:"value"`
+	Tx    *api.TransactionExtention              `json:"tx"`
+	Type  core.Transaction_Contract_ContractType `json:"type"`
+	Value interface{}                            `json:"value"`
 }
 
 type TriggerContract struct {
@@ -48,36 +49,12 @@ func has0xPrefix(s string) bool {
 
 // NewEthereumParser returns new EthereumParser instance
 func NewTrxParser(b int, rpc *TrxRPC) *TrxParser {
-	return &TrxParser{&bchain.BaseParser{
-		BlockAddressesToKeep: b,
-		AmountDecimalPoint:   18,
-	},
+	return &TrxParser{
+		&bchain.BaseParser{
+			BlockAddressesToKeep: b,
+			AmountDecimalPoint:   18,
+		},
 		rpc}
-}
-
-func Hextob(str string) []byte {
-	slen := len(str)
-	bHex := make([]byte, len(str)/2)
-	ii := 0
-	for i := 0; i < len(str); i = i + 2 {
-		if slen != 1 {
-			ss := string(str[i]) + string(str[i+1])
-			bt, _ := strconv.ParseInt(ss, 16, 32)
-			bHex[ii] = byte(bt)
-			ii = ii + 1
-			slen = slen - 2
-		}
-	}
-	return bHex
-}
-
-func getResult(result string) string {
-	if len(result) != 192 {
-		return ""
-	}
-	start, _ := strconv.ParseUint(result[:64], 16, 32)
-	length, _ := strconv.ParseUint(result[64:128], 16, 32)
-	return string(Hextob(result[64+start*2 : 64+start*2+length*2]))
 }
 
 func (p *TrxParser) GetAddrDescFromAddress(address string) (bchain.AddressDescriptor, error) {
@@ -112,52 +89,6 @@ func (p *TrxParser) EthereumTypeGetErc20FromTx(tx *bchain.Tx) ([]bchain.Erc20Tra
 	return r, nil
 }
 
-//func (p *TrxParser) trxtospecifictx(tx TrxTx) (SpecificTransaction, error) {
-//	var specific SpecificTransaction
-//	specific.TxID = tx.TxID
-//	for _, raw := range tx.Raw_data.Contract {
-//		var specificContract TrxSpecificContract
-//		specificContract.Owner_address = raw.Parameter.Value.Owner_address
-//		specificContract.Contract_address = raw.Parameter.Value.Contract_address
-//		specificContract.Type = raw.Type
-//		//if raw.Parameter.Value.Owner_address != "" && raw.Parameter.Value.Contract_address != "" {
-//		//	t1, err := p.GetContract(raw.Parameter.Value.Owner_address, raw.Parameter.Value.Contract_address, "name()")
-//		//	if err != nil {
-//		//		return SpecificTransaction{}, err
-//		//	}
-//		//	if t1.(TriggerContract).Constant_result != nil {
-//		//		for _, res := range *t1.(TriggerContract).Constant_result {
-//		//			specificContract.Name = getResult(res)
-//		//		}
-//		//	}
-//		//	t2, err := p.GetContract(raw.Parameter.Value.Owner_address, raw.Parameter.Value.Contract_address, "symbol()")
-//		//	if err != nil {
-//		//		return SpecificTransaction{}, err
-//		//	}
-//		//	if t2.(TriggerContract).Constant_result != nil {
-//		//		for _, res := range *t2.(TriggerContract).Constant_result {
-//		//			specificContract.Symbol = getResult(res)
-//		//		}
-//		//	}
-//		//	t3, err := p.GetContract(raw.Parameter.Value.Owner_address, raw.Parameter.Value.Contract_address, "decimals()")
-//		//	if err != nil {
-//		//		return SpecificTransaction{}, err
-//		//	}
-//		//	if t3.(TriggerContract).Constant_result != nil {
-//		//		for _, res := range *t3.(TriggerContract).Constant_result {
-//		//			decimals, _ := strconv.Atoi(getResult(res))
-//		//			specificContract.Decimals = decimals
-//		//		}
-//		//	}
-//		//}
-//
-//		specific.SpecificContract = append(specific.SpecificContract, specificContract)
-//	}
-//
-//	return specific, nil
-//}
-
-// PackedTxidLen returns length in bytes of packed txid
 func (p *TrxParser) PackedTxidLen() int {
 	return 32
 }
@@ -171,17 +102,18 @@ func (p *TrxParser) TronTypeGetTrc20FromTx(tx *bchain.Tx) ([]bchain.Trc20Transfe
 			return trcs, err
 		}
 		var trc bchain.Trc20Transfer
-		if v, ok := trx.Value["contract_address"]; ok && len(v.([]uint8)) > 0 {
-			trc.Contract = string(v.([]byte))
-		}
-		if v, ok := trx.Value["OwnerAddress"]; ok && len(v.([]uint8)) > 0 {
-			trc.From = string(v.([]byte))
-		}
-		if v, ok := trx.Value["ToAddress"]; ok && len(v.([]uint8)) > 0 {
-			trc.To = string(v.([]byte))
-		}
-		if v, ok := trx.Value["Amount"]; ok {
-			trc.Tokens = *big.NewInt(v.(int64))
+		if trx.Type == core.Transaction_Contract_TransferContract {
+			data := trx.Value.(core.TransferContract)
+			trc.From = hex.EncodeToString(data.OwnerAddress)
+			trc.To = hex.EncodeToString(data.ToAddress)
+			trc.Contract = ""
+			trc.Tokens = *big.NewInt(data.Amount)
+		} else {
+			data := trx.Value.(core.TriggerSmartContract)
+			trc.From = hex.EncodeToString(data.OwnerAddress)
+			trc.Contract = hex.EncodeToString(data.ContractAddress)
+			trc.To = hex.EncodeToString(data.ContractAddress)
+			trc.Tokens = *big.NewInt(0)
 		}
 		trcs = append(trcs, trc)
 	}
@@ -189,24 +121,33 @@ func (p *TrxParser) TronTypeGetTrc20FromTx(tx *bchain.Tx) ([]bchain.Trc20Transfe
 }
 
 func (p *TrxParser) trxtotx(tx *api.TransactionExtention, blocktime int64, confirmations uint32) bchain.Tx {
-	contract, err := getContract(tx.Transaction.RawData.Contract[0].Type, tx.Transaction.RawData.Contract[0].Parameter)
+	if len(tx.Transaction.RawData.Contract) == 0 {
+		return bchain.Tx{}
+	}
+
+	contractType := tx.Transaction.RawData.Contract[0].Type
+	contract, err := getContractInfo(contractType, tx.Transaction.RawData.Contract[0].Parameter)
 	if err != nil {
 		return bchain.Tx{}
 	}
+
 	var from, to []string
 	var amount int64
-	if v, ok := contract["OwnerAddress"]; ok && len(v.([]uint8)) > 0 {
-		from = []string{string(v.([]byte))}
-	}
-	if v, ok := contract["ToAddress"]; ok && len(v.([]uint8)) > 0 {
-		to = []string{string(v.([]byte))}
-	}
-	if v, ok := contract["Amount"]; ok {
-		amount = v.(int64)
+	if contractType == core.Transaction_Contract_TransferContract {
+		data := contract.(core.TransferContract)
+		from = []string{hex.EncodeToString(data.OwnerAddress)}
+		to = []string{hex.EncodeToString(data.ToAddress)}
+		amount = data.Amount
+	} else {
+		data := contract.(core.TriggerSmartContract)
+		from = []string{hex.EncodeToString(data.OwnerAddress)}
+		to = []string{hex.EncodeToString(data.ContractAddress)}
+		amount = 0
 	}
 
 	ct := trxCompleteTransaction{
 		Tx:    tx,
+		Type:  contractType,
 		Value: contract,
 	}
 	return bchain.Tx{

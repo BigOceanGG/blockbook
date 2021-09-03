@@ -137,7 +137,7 @@ func (b *TrxRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
 	var cblock bchain.Block
 	cblock.BlockHeader = bchain.BlockHeader{
 		Hash:          hash,
-		Prev:          string(block.BlockHeader.RawData.ParentHash),
+		Prev:          hex.EncodeToString(block.BlockHeader.RawData.ParentHash),
 		Height:        uint32(block.BlockHeader.RawData.Number),
 		Confirmations: confirmations,
 		Time:          block.BlockHeader.RawData.Timestamp,
@@ -183,12 +183,13 @@ func (b *TrxRPC) GetBlockHeader(hash string) (*bchain.BlockHeader, error) {
 }
 
 func (b *TrxRPC) computeConfirmations(n int64) (int, error) {
-	block, err := b.conn.GetNowBlock()
-	if err != nil {
-		return 0, err
-	}
-	// transaction in the best block has 1 confirmation
-	return int(block.BlockHeader.RawData.Number - n + 1), nil
+	//block, err := b.conn.GetNowBlock()
+	//if err != nil {
+	//	return 0, err
+	//}
+	//// transaction in the best block has 1 confirmation
+	//return int(block.BlockHeader.RawData.Number - n + 1), nil
+	return 0, nil
 }
 
 func (b *TrxRPC) GetBlockInfo(hash string) (*bchain.BlockInfo, error) {
