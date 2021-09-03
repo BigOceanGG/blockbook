@@ -2,6 +2,7 @@ package trx
 
 import (
 	"encoding/hex"
+	"fmt"
 	"github.com/fbsobreira/gotron-sdk/pkg/proto/api"
 	"github.com/fbsobreira/gotron-sdk/pkg/proto/core"
 	"github.com/trezor/blockbook/bchain"
@@ -120,15 +121,15 @@ func (p *TrxParser) TronTypeGetTrc20FromTx(tx *bchain.Tx) ([]bchain.Trc20Transfe
 	return trcs, nil
 }
 
-func (p *TrxParser) trxtotx(tx *api.TransactionExtention, blocktime int64, confirmations uint32) bchain.Tx {
+func (p *TrxParser) trxtotx(tx *api.TransactionExtention, blocktime int64, confirmations uint32) (bchain.Tx, error) {
 	if len(tx.Transaction.RawData.Contract) == 0 {
-		return bchain.Tx{}
+		return bchain.Tx{}, fmt.Errorf("No contract")
 	}
 
 	contractType := tx.Transaction.RawData.Contract[0].Type
 	contract, err := getContractInfo(contractType, tx.Transaction.RawData.Contract[0].Parameter)
 	if err != nil {
-		return bchain.Tx{}
+		return bchain.Tx{}, err
 	}
 
 	var from, to []string
@@ -178,5 +179,5 @@ func (p *TrxParser) trxtotx(tx *api.TransactionExtention, blocktime int64, confi
 			},
 		},
 		CoinSpecificData: ct,
-	}
+	}, nil
 }

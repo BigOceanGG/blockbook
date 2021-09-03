@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 	"math/big"
 	"strconv"
+	"time"
 )
 
 type Configuration struct {
@@ -47,7 +48,7 @@ func NewTrxRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)
 		return nil, errors.Annotatef(err, "Invalid configuration file")
 	}
 
-	conn := client.NewGrpcClient(c.RPCURL)
+	conn := client.NewGrpcClientWithTimeout(c.RPCURL, 20*time.Second)
 	if err := conn.Start([]grpc.DialOption{grpc.WithInsecure()}...); err != nil {
 		return nil, err
 	}
@@ -148,8 +149,10 @@ func (b *TrxRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
 		return nil, err
 	}
 	for _, tx := range blockExtention.Transactions {
-		btx := b.Parser.trxtotx(tx, block.BlockHeader.RawData.Timestamp, uint32(confirmations))
-		cblock.Txs = append(cblock.Txs, btx)
+		btx, err := b.Parser.trxtotx(tx, block.BlockHeader.RawData.Timestamp, uint32(confirmations))
+		if err == nil {
+			cblock.Txs = append(cblock.Txs, btx)
+		}
 	}
 
 	return &cblock, nil

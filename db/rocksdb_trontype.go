@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/tecbot/gorocksdb"
 	"github.com/trezor/blockbook/bchain"
-	"github.com/trezor/blockbook/bchain/coins/eth"
 )
 
 type tronBlockTx struct {
@@ -19,12 +18,47 @@ type tronBlockTx struct {
 	contracts []ethBlockTxContract
 }
 
+func (d *RocksDB) GetTronAddrDescContracts(addrDesc bchain.AddressDescriptor) (*AddrContracts, error) {
+	val, err := d.db.GetCF(d.ro, d.cfh[cfAddressContracts], addrDesc)
+	if err != nil {
+		return nil, err
+	}
+	defer val.Free()
+	buf := val.Data()
+	if len(buf) == 0 {
+		return nil, nil
+	}
+	tt, l := unpackVaruint(buf)
+	buf = buf[l:]
+	nct, l := unpackVaruint(buf)
+	buf = buf[l:]
+	c := make([]AddrContract, 0, 4)
+	for len(buf) > 0 {
+		glog.Info(len(buf))
+		if len(buf) < trx.TronTypeAddressDescriptorLen {
+			return nil, errors.New("Invalid data stored in cfAddressContracts for AddrDesc " + addrDesc.String())
+		}
+		txs, l := unpackVaruint(buf[trx.TronTypeAddressDescriptorLen:])
+		contract := append(bchain.AddressDescriptor(nil), buf[:trx.TronTypeAddressDescriptorLen]...)
+		c = append(c, AddrContract{
+			Contract: contract,
+			Txs:      txs,
+		})
+		buf = buf[trx.TronTypeAddressDescriptorLen+l:]
+	}
+	return &AddrContracts{
+		TotalTxs:       tt,
+		NonContractTxs: nct,
+		Contracts:      c,
+	}, nil
+}
+
 func (d *RocksDB) addToContractsTronType(addrDesc bchain.AddressDescriptor, btxID []byte, contract bchain.AddressDescriptor, addresses addressesMap, addressContracts map[string]*AddrContracts) error {
 	var err error
 	strAddrDesc := string(addrDesc)
 	ac, e := addressContracts[strAddrDesc]
 	if !e {
-		ac, err = d.GetAddrDescContracts(addrDesc)
+		ac, err = d.GetTronAddrDescContracts(addrDesc)
 		if err != nil {
 			return err
 		}
@@ -169,18 +203,18 @@ func (d *RocksDB) getBlockTxsTronType(height uint32) ([]tronBlockTx, error) {
 	// buf can be empty slice, this means the block did not contain any transactions
 	bt := make([]tronBlockTx, 0, 8)
 	getAddress := func(i int) (bchain.AddressDescriptor, int, error) {
-		if len(buf)-i < eth.EthereumTypeAddressDescriptorLen {
+		if len(buf)-i < trx.TronTypeAddressDescriptorLen {
 			glog.Error("rocksdb: Inconsistent data in blockTxs ", hex.EncodeToString(buf))
 			return nil, 0, errors.New("Inconsistent data in blockTxs")
 		}
-		a := append(bchain.AddressDescriptor(nil), buf[i:i+eth.EthereumTypeAddressDescriptorLen]...)
+		a := append(bchain.AddressDescriptor(nil), buf[i:i+trx.TronTypeAddressDescriptorLen]...)
 		// return null addresses as nil
 		for _, b := range a {
 			if b != 0 {
-				return a, i + eth.EthereumTypeAddressDescriptorLen, nil
+				return a, i + trx.TronTypeAddressDescriptorLen, nil
 			}
 		}
-		return nil, i + eth.EthereumTypeAddressDescriptorLen, nil
+		return nil, i + trx.TronTypeAddressDescriptorLen, nil
 	}
 	var from, to bchain.AddressDescriptor
 	for i := 0; i < len(buf); {
@@ -246,7 +280,7 @@ func (d *RocksDB) disconnectBlockTxsTronType(wb *gorocksdb.WriteBatch, height ui
 		}
 		c, fc := contracts[s]
 		if !fc {
-			c, err = d.GetAddrDescContracts(addrDesc)
+			c, err = d.GetTronAddrDescContracts(addrDesc)
 			if err != nil {
 				return err
 			}
