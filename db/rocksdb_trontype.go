@@ -54,7 +54,7 @@ func (d *RocksDB) GetTronAddrDescContracts(addrDesc bchain.AddressDescriptor) (*
 
 func (d *RocksDB) addToContractsTronType(addrDesc bchain.AddressDescriptor, btxID []byte, contract bchain.AddressDescriptor, addresses addressesMap, addressContracts map[string]*AddrContracts) error {
 	var err error
-	strAddrDesc := string(addrDesc)
+	strAddrDesc := hex.EncodeToString(addrDesc)
 	ac, e := addressContracts[strAddrDesc]
 	if !e {
 		ac, err = d.GetTronAddrDescContracts(addrDesc)
@@ -369,4 +369,32 @@ func (d *RocksDB) DisconnectBlockRangeTronType(lower uint32, higher uint32) erro
 		glog.Infof("rocksdb: blocks %d-%d disconnected", lower, higher)
 	}
 	return err
+}
+
+func (d *RocksDB) storeTronAddressContracts(wb *gorocksdb.WriteBatch, acm map[string]*AddrContracts) error {
+	buf := make([]byte, 64)
+	varBuf := make([]byte, vlq.MaxLen64)
+	for addrDesc, acs := range acm {
+		// address with 0 contracts is removed from db - happens on disconnect
+		if acs == nil || (acs.NonContractTxs == 0 && len(acs.Contracts) == 0) {
+			wb.DeleteCF(d.cfh[cfAddressContracts], bchain.AddressDescriptor(addrDesc))
+		} else {
+			buf = buf[:0]
+			l := packVaruint(acs.TotalTxs, varBuf)
+			buf = append(buf, varBuf[:l]...)
+			l = packVaruint(acs.NonContractTxs, varBuf)
+			buf = append(buf, varBuf[:l]...)
+			for _, ac := range acs.Contracts {
+				buf = append(buf, ac.Contract...)
+				l = packVaruint(ac.Txs, varBuf)
+				buf = append(buf, varBuf[:l]...)
+			}
+			key, err := hex.DecodeString(addrDesc)
+			if err != nil {
+				continue
+			}
+			wb.PutCF(d.cfh[cfAddressContracts], key, buf)
+		}
+	}
+	return nil
 }

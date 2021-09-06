@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"github.com/fbsobreira/gotron-sdk/pkg/client"
+	common2 "github.com/fbsobreira/gotron-sdk/pkg/common"
 	"github.com/fbsobreira/gotron-sdk/pkg/proto/core"
 	"github.com/golang/glog"
 	"github.com/juju/errors"
@@ -320,6 +321,14 @@ func (b *TrxRPC) SendRawTransaction(tx string) (string, error) {
 	}
 
 	return hex.EncodeToString(ret.Message), nil
+}
+
+func (b *TrxRPC) TronTypeGetBalance(addrDesc bchain.AddressDescriptor) (*big.Int, error) {
+	acc, err := b.conn.GetAccount(common2.EncodeCheck(addrDesc))
+	if err != nil {
+		return nil, err
+	}
+	return big.NewInt(acc.GetBalance()), nil
 }
 
 func (b *TrxRPC) GetChainParser() bchain.BlockChainParser {

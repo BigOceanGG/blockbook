@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"github.com/fbsobreira/gotron-sdk/pkg/proto/api"
 	"github.com/fbsobreira/gotron-sdk/pkg/proto/core"
+	"github.com/golang/glog"
 	"github.com/trezor/blockbook/bchain"
 	"math/big"
+	"strconv"
 )
 
 const TronTypeAddressHexLen = 42
@@ -20,7 +22,7 @@ type TrxParser struct {
 type trxCompleteTransaction struct {
 	Tx    *api.TransactionExtention              `json:"tx"`
 	Type  core.Transaction_Contract_ContractType `json:"type"`
-	Value interface{}                            `json:"value"`
+	Value bchain.Trc20Transfer                   `json:"value"`
 }
 
 type TriggerContract struct {
@@ -96,27 +98,9 @@ func (p *TrxParser) PackedTxidLen() int {
 
 func (p *TrxParser) TronTypeGetTrc20FromTx(tx *bchain.Tx) ([]bchain.Trc20Transfer, error) {
 	var trcs []bchain.Trc20Transfer
-	var err error
 	trx, ok := tx.CoinSpecificData.(trxCompleteTransaction)
 	if ok {
-		if err != nil {
-			return trcs, err
-		}
-		var trc bchain.Trc20Transfer
-		if trx.Type == core.Transaction_Contract_TransferContract {
-			data := trx.Value.(core.TransferContract)
-			trc.From = hex.EncodeToString(data.OwnerAddress)
-			trc.To = hex.EncodeToString(data.ToAddress)
-			trc.Contract = ""
-			trc.Tokens = *big.NewInt(data.Amount)
-		} else {
-			data := trx.Value.(core.TriggerSmartContract)
-			trc.From = hex.EncodeToString(data.OwnerAddress)
-			trc.Contract = hex.EncodeToString(data.ContractAddress)
-			trc.To = hex.EncodeToString(data.ContractAddress)
-			trc.Tokens = *big.NewInt(0)
-			trcs = append(trcs, trc)
-		}
+		trcs = append(trcs, trx.Value)
 	}
 	return trcs, nil
 }
@@ -134,6 +118,7 @@ func (p *TrxParser) trxtotx(tx *api.TransactionExtention, blocktime int64, confi
 
 	var from, to []string
 	var amount int64
+	var contractAddr string
 	if contractType == core.Transaction_Contract_TransferContract {
 		data := contract.(core.TransferContract)
 		from = []string{hex.EncodeToString(data.OwnerAddress)}
@@ -141,15 +126,31 @@ func (p *TrxParser) trxtotx(tx *api.TransactionExtention, blocktime int64, confi
 		amount = data.Amount
 	} else {
 		data := contract.(core.TriggerSmartContract)
-		from = []string{hex.EncodeToString(data.OwnerAddress)}
-		to = []string{hex.EncodeToString(data.ContractAddress)}
-		amount = 0
+		glog.Info(hex.EncodeToString(tx.Txid))
+		tran, err := p.rpc.conn.GetTransactionInfoByID(hex.EncodeToString(tx.Txid))
+		if err != nil || len(tran.Log) == 0 {
+			return bchain.Tx{}, err
+		}
+
+		if hex.EncodeToString(tran.Log[0].Topics[0]) != "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef" {
+			return bchain.Tx{}, fmt.Errorf("not transfer")
+		}
+
+		from = []string{"41" + hex.EncodeToString(tran.Log[0].Topics[1][12:])}
+		to = []string{"41" + hex.EncodeToString(tran.Log[0].Topics[2][12:])}
+		amount, _ = strconv.ParseInt(hex.EncodeToString(tran.Log[0].Data), 16, 64)
+		contractAddr = hex.EncodeToString(data.ContractAddress)
 	}
 
 	ct := trxCompleteTransaction{
-		Tx:    tx,
-		Type:  contractType,
-		Value: contract,
+		Tx:   tx,
+		Type: contractType,
+		Value: bchain.Trc20Transfer{
+			contractAddr,
+			from[0],
+			to[0],
+			*big.NewInt(amount),
+		},
 	}
 	return bchain.Tx{
 		Blocktime:     blocktime,

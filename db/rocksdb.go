@@ -486,7 +486,7 @@ func (d *RocksDB) ConnectBlock(block *bchain.Block) error {
 		if err != nil {
 			return err
 		}
-		if err := d.storeAddressContracts(wb, addressContracts); err != nil {
+		if err := d.storeTronAddressContracts(wb, addressContracts); err != nil {
 			return err
 		}
 		if err := d.storeAndCleanupBlockTxsTronType(wb, block, blockTxs); err != nil {

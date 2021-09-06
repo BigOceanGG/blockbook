@@ -213,6 +213,13 @@ type Erc20Contract struct {
 	Decimals int    `json:"decimals"`
 }
 
+type Trc20Contract struct {
+	Contract string `json:"contract"`
+	Name     string `json:"name"`
+	Symbol   string `json:"symbol"`
+	Decimals int    `json:"decimals"`
+}
+
 // Erc20Transfer contains a single ERC20 token transfer
 type Erc20Transfer struct {
 	Contract string
@@ -289,6 +296,10 @@ type BlockChain interface {
 	EthereumTypeEstimateGas(params map[string]interface{}) (uint64, error)
 	EthereumTypeGetErc20ContractInfo(contractDesc AddressDescriptor) (*Erc20Contract, error)
 	EthereumTypeGetErc20ContractBalance(addrDesc, contractDesc AddressDescriptor) (*big.Int, error)
+
+	TronTypeGetBalance(addrDesc AddressDescriptor) (*big.Int, error)
+	TronTypeGetTrc20ContractInfo(contractDesc AddressDescriptor) (*Trc20Contract, error)
+	TronTypeGetTrc20ContractBalance(addrDesc, contractDesc AddressDescriptor) (*big.Int, error)
 }
 
 // BlockChainParser defines common interface to parsing and conversions of block chain data

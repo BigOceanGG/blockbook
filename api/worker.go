@@ -657,6 +657,44 @@ func (w *Worker) getEthereumToken(index int, addrDesc, contract bchain.AddressDe
 	}, nil
 }
 
+func (w *Worker) getTronToken(index int, addrDesc, contract bchain.AddressDescriptor, details AccountDetails, txs int) (*Token, error) {
+	var b *big.Int
+	validContract := true
+	ci, err := w.chain.TronTypeGetTrc20ContractInfo(contract)
+	if err != nil {
+		return nil, errors.Annotatef(err, "EthereumTypeGetErc20ContractInfo %v", contract)
+	}
+	if ci == nil {
+		ci = &bchain.Trc20Contract{}
+		addresses, _, _ := w.chainParser.GetAddressesFromAddrDesc(contract)
+		if len(addresses) > 0 {
+			ci.Contract = addresses[0]
+			ci.Name = addresses[0]
+		}
+		validContract = false
+	}
+	// do not read contract balances etc in case of Basic option
+	if details >= AccountDetailsTokenBalances && validContract {
+		b, err = w.chain.TronTypeGetTrc20ContractBalance(addrDesc, contract)
+		if err != nil {
+			// return nil, nil, nil, errors.Annotatef(err, "EthereumTypeGetErc20ContractBalance %v %v", addrDesc, c.Contract)
+			glog.Warningf("EthereumTypeGetErc20ContractBalance addr %v, contract %v, %v", addrDesc, contract, err)
+		}
+	} else {
+		b = nil
+	}
+	return &Token{
+		Type:          TRC20TokenType,
+		BalanceSat:    (*Amount)(b),
+		Contract:      ci.Contract,
+		Name:          ci.Name,
+		Symbol:        ci.Symbol,
+		Transfers:     txs,
+		Decimals:      ci.Decimals,
+		ContractIndex: strconv.Itoa(index),
+	}, nil
+}
+
 func (w *Worker) getEthereumTypeAddressBalances(addrDesc bchain.AddressDescriptor, details AccountDetails, filter *AddressFilter) (*db.AddrBalance, []Token, *bchain.Erc20Contract, uint64, int, int, error) {
 	var (
 		ba             *db.AddrBalance
@@ -763,6 +801,108 @@ func (w *Worker) getEthereumTypeAddressBalances(addrDesc bchain.AddressDescripto
 	return ba, tokens, ci, n, nonContractTxs, totalResults, nil
 }
 
+func (w *Worker) getTronTypeAddressBalances(addrDesc bchain.AddressDescriptor, details AccountDetails, filter *AddressFilter) (*db.AddrBalance, []Token, *bchain.Trc20Contract, uint64, int, int, error) {
+	var (
+		ba             *db.AddrBalance
+		tokens         []Token
+		ci             *bchain.Trc20Contract
+		n              uint64
+		nonContractTxs int
+	)
+	// unknown number of results for paging
+	totalResults := -1
+	ca, err := w.db.GetTronAddrDescContracts(addrDesc)
+	if err != nil {
+		return nil, nil, nil, 0, 0, 0, NewAPIError(fmt.Sprintf("Address not found, %v", err), true)
+	}
+	b, err := w.chain.TronTypeGetBalance(addrDesc)
+	if err != nil {
+		return nil, nil, nil, 0, 0, 0, errors.Annotatef(err, "EthereumTypeGetBalance %v", addrDesc)
+	}
+	var filterDesc bchain.AddressDescriptor
+	if filter.Contract != "" {
+		filterDesc, err = w.chainParser.GetAddrDescFromAddress(filter.Contract)
+		if err != nil {
+			return nil, nil, nil, 0, 0, 0, NewAPIError(fmt.Sprintf("Invalid contract filter, %v", err), true)
+		}
+	}
+	if ca != nil {
+		ba = &db.AddrBalance{
+			Txs: uint32(ca.TotalTxs),
+		}
+		if b != nil {
+			ba.BalanceSat = *b
+		}
+		if details > AccountDetailsBasic {
+			tokens = make([]Token, len(ca.Contracts))
+			var j int
+			for i, c := range ca.Contracts {
+				if len(filterDesc) > 0 {
+					if !bytes.Equal(filterDesc, c.Contract) {
+						continue
+					}
+					// filter only transactions of this contract
+					filter.Vout = i + 1
+				}
+				t, err := w.getTronToken(i+1, addrDesc, c.Contract, details, int(c.Txs))
+				if err != nil {
+					return nil, nil, nil, 0, 0, 0, err
+				}
+				tokens[j] = *t
+				j++
+			}
+			// special handling if filter has contract
+			// if the address has no transactions with given contract, check the balance, the address may have some balance even without transactions
+			if len(filterDesc) > 0 && j == 0 && details >= AccountDetailsTokens {
+				t, err := w.getTronToken(0, addrDesc, filterDesc, details, 0)
+				if err != nil {
+					return nil, nil, nil, 0, 0, 0, err
+				}
+				tokens = []Token{*t}
+				// switch off query for transactions, there are no transactions
+				filter.Vout = AddressFilterVoutQueryNotNecessary
+			} else {
+				tokens = tokens[:j]
+			}
+		}
+		ci, err = w.chain.TronTypeGetTrc20ContractInfo(addrDesc)
+		if err != nil {
+			return nil, nil, nil, 0, 0, 0, err
+		}
+		if filter.FromHeight == 0 && filter.ToHeight == 0 {
+			// compute total results for paging
+			if filter.Vout == AddressFilterVoutOff {
+				totalResults = int(ca.TotalTxs)
+			} else if filter.Vout == 0 {
+				totalResults = int(ca.NonContractTxs)
+			} else if filter.Vout > 0 && filter.Vout-1 < len(ca.Contracts) {
+				totalResults = int(ca.Contracts[filter.Vout-1].Txs)
+			} else if filter.Vout == AddressFilterVoutQueryNotNecessary {
+				totalResults = 0
+			}
+		}
+		nonContractTxs = int(ca.NonContractTxs)
+	} else {
+		// addresses without any normal transactions can have internal transactions and therefore balance
+		if b != nil {
+			ba = &db.AddrBalance{
+				BalanceSat: *b,
+			}
+		}
+		// special handling if filtering for a contract, check the ballance of it
+		if len(filterDesc) > 0 && details >= AccountDetailsTokens {
+			t, err := w.getTronToken(0, addrDesc, filterDesc, details, 0)
+			if err != nil {
+				return nil, nil, nil, 0, 0, 0, err
+			}
+			tokens = []Token{*t}
+			// switch off query for transactions, there are no transactions
+			filter.Vout = AddressFilterVoutQueryNotNecessary
+		}
+	}
+	return ba, tokens, ci, n, nonContractTxs, totalResults, nil
+}
+
 func (w *Worker) txFromTxid(txid string, bestheight uint32, option AccountDetails, blockInfo *db.BlockInfo) (*Tx, error) {
 	var tx *Tx
 	var err error
@@ -834,6 +974,7 @@ func (w *Worker) GetAddress(address string, page int, txsOnPage int, option Acco
 		ba                       *db.AddrBalance
 		tokens                   []Token
 		erc20c                   *bchain.Erc20Contract
+		trc20c                   *bchain.Trc20Contract
 		txm                      []string
 		txs                      []*Tx
 		txids                    []string
@@ -856,6 +997,11 @@ func (w *Worker) GetAddress(address string, page int, txsOnPage int, option Acco
 			return nil, err
 		}
 		nonce = strconv.Itoa(int(n))
+	} else if w.chainType == bchain.ChainTronType {
+		ba, tokens, trc20c, _, nonTokenTxs, totalResults, err = w.getTronTypeAddressBalances(addrDesc, option, filter)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		// ba can be nil if the address is only in mempool!
 		ba, err = w.db.GetAddrDescBalance(addrDesc, db.AddressBalanceDetailNoUTXO)
@@ -959,6 +1105,7 @@ func (w *Worker) GetAddress(address string, page int, txsOnPage int, option Acco
 		Txids:                 txids,
 		Tokens:                tokens,
 		Erc20Contract:         erc20c,
+		Trc20Contract:         trc20c,
 		Nonce:                 nonce,
 	}
 	glog.Info("GetAddress ", address, ", ", time.Since(start))
