@@ -287,10 +287,12 @@ func (b *TrxRPC) GetComplete(tx *core.Transaction, txid string) (*trxCompleteTra
 	}
 
 	res := trxCompleteTransaction{
-		Tx:     tx,
-		Data:   data,
-		Type:   contractType,
-		Height: tran.BlockNumber,
+		Tx:   tx,
+		Txid: txid,
+		//Data:   data,
+		Type:        contractType,
+		BlockNumber: tran.BlockNumber,
+		BlockTime:   tran.BlockTimeStamp,
 	}
 
 	var value bchain.Trc20Transfer

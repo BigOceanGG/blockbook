@@ -457,9 +457,12 @@ func (w *Worker) getTokensFromErc20(erc20 []bchain.Erc20Transfer) []TokenTransfe
 }
 
 func (w *Worker) getTokensFromTrc20(trc20 []bchain.Trc20Transfer) []TokenTransfer {
-	tokens := make([]TokenTransfer, len(trc20))
+	var tokens []TokenTransfer
 	for i := range trc20 {
 		e := &trc20[i]
+		if e.Contract == "" {
+			continue
+		}
 		cd, err := w.chainParser.GetAddrDescFromAddress(e.Contract)
 		if err != nil {
 			glog.Errorf("GetAddrDescFromAddress error %v, contract %v", err, e.Contract)
@@ -473,7 +476,7 @@ func (w *Worker) getTokensFromTrc20(trc20 []bchain.Trc20Transfer) []TokenTransfe
 		if trc20c == nil {
 			trc20c = &bchain.Trc20Contract{}
 		}
-		tokens[i] = TokenTransfer{
+		tokens = append(tokens, TokenTransfer{
 			Type:     TRC20TokenType,
 			Token:    e.Contract,
 			From:     e.From,
@@ -482,7 +485,7 @@ func (w *Worker) getTokensFromTrc20(trc20 []bchain.Trc20Transfer) []TokenTransfe
 			Value:    (*Amount)(&e.Amount),
 			Name:     trc20c.Name,
 			Symbol:   trc20c.Symbol,
-		}
+		})
 	}
 	return tokens
 }

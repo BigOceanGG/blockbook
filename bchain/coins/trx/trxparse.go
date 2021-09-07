@@ -3,6 +3,7 @@ package trx
 import (
 	"encoding/hex"
 	"github.com/fbsobreira/gotron-sdk/pkg/proto/core"
+	"github.com/golang/protobuf/proto"
 	"github.com/juju/errors"
 	"github.com/trezor/blockbook/bchain"
 	"math/big"
@@ -17,12 +18,18 @@ type TrxParser struct {
 }
 
 type trxCompleteTransaction struct {
-	Tx     *core.Transaction `json:"tx,omitempty"`
-	Height int64             `json:"height"`
-	Type   core.Transaction_Contract_ContractType
-	Data   map[string]interface{} `json:"data"`
-	Value  *bchain.Trc20Transfer  `json:"value,omitempty"`
+	Tx          *core.Transaction                      `protobuf:"bytes,1,opt,name=tx,proto3" json:"tx,omitempty"`
+	BlockNumber int64                                  `protobuf:"varint,2,opt,name=BlockNumber" json:"BlockNumber,omitempty"`
+	BlockTime   int64                                  `protobuf:"varint,3,opt,name=BlockTime" json:"BlockTime,omitempty"`
+	Type        core.Transaction_Contract_ContractType `protobuf:"varint,4,opt,name=type" json:"type"`
+	Txid        string                                 `protobuf:"bytes,5,opt,name=txid" json:"txid"`
+	//Data   map[string]interface{} 					`protobuf:"bytes,4,opt,name=data" json:"data"`
+	Value *bchain.Trc20Transfer `protobuf:"bytes,6,opt,name=value" json:"value,omitempty"`
 }
+
+func (m *trxCompleteTransaction) Reset()         { *m = trxCompleteTransaction{} }
+func (m *trxCompleteTransaction) String() string { return proto.CompactTextString(m) }
+func (*trxCompleteTransaction) ProtoMessage()    {}
 
 type TriggerContract struct {
 	Constant_result *[]string `json:"constant_result"`
@@ -103,7 +110,7 @@ func GetHeightFromTx(tx *bchain.Tx) (uint32, error) {
 	if !ok {
 		return 0, errors.New("Missing CoinSpecificData")
 	}
-	return uint32(csd.Height), nil
+	return uint32(csd.BlockNumber), nil
 }
 
 func (p *TrxParser) TronTypeGetTrc20FromTx(tx *bchain.Tx) ([]bchain.Trc20Transfer, error) {
@@ -114,17 +121,18 @@ func (p *TrxParser) TronTypeGetTrc20FromTx(tx *bchain.Tx) ([]bchain.Trc20Transfe
 			trcs = append(trcs, *trx.Value)
 		}
 	} else {
-		txx, err := p.rpc.conn.GetTransactionByID(tx.Txid)
-		if err != nil {
-			return nil, err
-		}
-		complete, err := p.rpc.GetComplete(txx, tx.Txid)
-		if err != nil {
-			return nil, err
-		}
-		if complete.Value != nil && complete.Value.Contract != "" {
-			trcs = append(trcs, *complete.Value)
-		}
+		return nil, errors.New("no trxCompleteTransaction")
+		//txx, err := p.rpc.conn.GetTransactionByID(tx.Txid)
+		//if err != nil {
+		//	return nil, err
+		//}
+		//complete, err := p.rpc.GetComplete(txx, tx.Txid)
+		//if err != nil {
+		//	return nil, err
+		//}
+		//if complete.Value != nil && complete.Value.Contract != "" {
+		//	trcs = append(trcs, *complete.Value)
+		//}
 	}
 	return trcs, nil
 }
@@ -172,4 +180,26 @@ func (p *TrxParser) trxtotx(txid string, tx *core.Transaction, blocktime int64, 
 		},
 		CoinSpecificData: *complete,
 	}, nil
+}
+
+func (p *TrxParser) PackTx(tx *bchain.Tx, height uint32, blockTime int64) ([]byte, error) {
+	r, ok := tx.CoinSpecificData.(trxCompleteTransaction)
+	if !ok {
+		return nil, errors.New("Missing CoinSpecificData")
+	}
+	return proto.Marshal(&r)
+}
+
+// UnpackTx unpacks transaction from byte array
+func (p *TrxParser) UnpackTx(buf []byte) (*bchain.Tx, uint32, error) {
+	var pt trxCompleteTransaction
+	err := proto.Unmarshal(buf, &pt)
+	if err != nil {
+		return nil, 0, err
+	}
+	tx, err := p.trxtotx(pt.Txid, pt.Tx, pt.BlockTime, 0, pt.BlockNumber)
+	if err != nil {
+		return nil, 0, err
+	}
+	return tx, 0, err
 }
