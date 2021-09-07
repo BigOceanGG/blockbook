@@ -150,9 +150,9 @@ func (b *TrxRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
 		return nil, err
 	}
 	for _, tx := range blockExtention.Transactions {
-		btx, err := b.Parser.trxtotx(tx, block.BlockHeader.RawData.Timestamp, uint32(confirmations))
+		btx, err := b.Parser.trxtotx(hex.EncodeToString(tx.Txid), tx.Transaction, block.BlockHeader.RawData.Timestamp, uint32(confirmations), block.BlockHeader.RawData.Number)
 		if err == nil {
-			cblock.Txs = append(cblock.Txs, btx)
+			cblock.Txs = append(cblock.Txs, *btx)
 		}
 	}
 
@@ -187,13 +187,12 @@ func (b *TrxRPC) GetBlockHeader(hash string) (*bchain.BlockHeader, error) {
 }
 
 func (b *TrxRPC) computeConfirmations(n int64) (int, error) {
-	//block, err := b.conn.GetNowBlock()
-	//if err != nil {
-	//	return 0, err
-	//}
-	//// transaction in the best block has 1 confirmation
-	//return int(block.BlockHeader.RawData.Number - n + 1), nil
-	return 0, nil
+	block, err := b.conn.GetNowBlock()
+	if err != nil {
+		return 0, err
+	}
+	// transaction in the best block has 1 confirmation
+	return int(block.BlockHeader.RawData.Number - n + 1), nil
 }
 
 func (b *TrxRPC) GetBlockInfo(hash string) (*bchain.BlockInfo, error) {
@@ -235,20 +234,20 @@ func (b *TrxRPC) GetMempoolTransactions() ([]string, error) {
 }
 
 func (b *TrxRPC) GetTransaction(txid string) (*bchain.Tx, error) {
-	tx, err := b.conn.GetTransactionInfoByID(txid)
+	tx, err := b.conn.GetTransactionByID(txid)
 	if err != nil {
 		return nil, err
 	}
-	confirmations, err := b.computeConfirmations(tx.BlockNumber)
+	txinfo, err := b.conn.GetTransactionInfoByID(txid)
 	if err != nil {
 		return nil, err
 	}
-	return &bchain.Tx{
-		Txid:          txid,
-		BlockHeight:   uint32(tx.BlockNumber),
-		Confirmations: uint32(confirmations),
-		Time:          tx.BlockTimeStamp,
-	}, nil
+
+	confirmations, err := b.computeConfirmations(txinfo.BlockNumber)
+	if err != nil {
+		return nil, err
+	}
+	return b.Parser.trxtotx(txid, tx, txinfo.BlockTimeStamp, uint32(confirmations), txinfo.BlockNumber)
 }
 
 func (b *TrxRPC) GetChainInfo() (*bchain.ChainInfo, error) {
@@ -275,25 +274,67 @@ func (b *TrxRPC) GetTransactionForMempool(txid string) (*bchain.Tx, error) {
 	return b.GetTransaction(txid)
 }
 
-func (b *TrxRPC) GetTransactionSpecific(tx *bchain.Tx) (json.RawMessage, error) {
-	csd, ok := tx.CoinSpecificData.(SpecificTransaction)
-	if !ok {
-		req := make(map[string]interface{})
-		req["value"] = tx.Txid
+func (b *TrxRPC) GetComplete(tx *core.Transaction, txid string) (*trxCompleteTransaction, error) {
+	contractType := tx.RawData.Contract[0].Type
+	data, err := getContract(contractType, tx.RawData.Contract[0].Parameter)
+	if err != nil {
+		return nil, err
+	}
 
-		//var transaction TrxTx
-		//err := b.PostCall("/wallet/gettransactionbyid", req, &transaction)
-		//if err != nil {
-		//	return nil, err
-		//}
-		//tx.CoinSpecificData, err = b.Parser.trxtospecifictx(transaction)
-		//if err != nil {
-		//	return nil, err
-		//}
-		csd, ok = tx.CoinSpecificData.(SpecificTransaction)
-		if !ok {
-			return nil, errors.New("Cannot get CoinSpecificData")
+	tran, err := b.conn.GetTransactionInfoByID(txid)
+	if err != nil {
+		return nil, err
+	}
+
+	res := trxCompleteTransaction{
+		Tx:     tx,
+		Data:   data,
+		Type:   contractType,
+		Height: tran.BlockNumber,
+	}
+
+	var value bchain.Trc20Transfer
+	if contractType == core.Transaction_Contract_TransferContract {
+		if v, ok := data["OwnerAddress"]; ok && len(v.([]uint8)) > 0 {
+			value.From = hex.EncodeToString(v.([]byte))
 		}
+		if v, ok := data["ToAddress"]; ok && len(v.([]uint8)) > 0 {
+			value.To = hex.EncodeToString(v.([]byte))
+		}
+		if v, ok := data["Amount"]; ok {
+			value.Amount = *big.NewInt(v.(int64))
+		}
+		res.Value = &value
+	} else if contractType == core.Transaction_Contract_TriggerSmartContract {
+		if len(tran.Log) > 0 && len(tran.Log[0].Topics) > 0 && hex.EncodeToString(tran.Log[0].Topics[0]) == "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef" {
+			value.From = "41" + hex.EncodeToString(tran.Log[0].Topics[1][12:])
+			value.To = "41" + hex.EncodeToString(tran.Log[0].Topics[2][12:])
+			if amount, err := strconv.ParseInt(hex.EncodeToString(tran.Log[0].Data), 16, 64); err == nil {
+				value.Amount = *big.NewInt(amount)
+			}
+			if v, ok := data["ContractAddress"]; ok && len(v.([]uint8)) > 0 {
+				value.Contract = hex.EncodeToString(v.([]byte))
+			}
+			res.Value = &value
+		}
+	}
+
+	return &res, nil
+}
+
+func (b *TrxRPC) GetTransactionSpecific(tx *bchain.Tx) (json.RawMessage, error) {
+	csd, ok := tx.CoinSpecificData.(trxCompleteTransaction)
+	if !ok {
+		txx, err := b.conn.GetTransactionByID(tx.Txid)
+		if err != nil {
+			return nil, err
+		}
+
+		complete, err := b.GetComplete(txx, tx.Txid)
+		if err != nil {
+			return nil, err
+		}
+		csd = *complete
 	}
 	m, err := json.Marshal(&csd)
 	return json.RawMessage(m), err

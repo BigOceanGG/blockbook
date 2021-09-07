@@ -6,9 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
-
 	"github.com/trezor/blockbook/common"
+	"math/big"
 )
 
 // ChainType is type of the blockchain
@@ -232,7 +231,7 @@ type Trc20Transfer struct {
 	Contract string
 	From     string
 	To       string
-	Tokens   big.Int
+	Amount   big.Int
 }
 
 // MempoolTxidEntry contains mempool txid with first seen time

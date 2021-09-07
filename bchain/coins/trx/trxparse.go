@@ -2,13 +2,10 @@ package trx
 
 import (
 	"encoding/hex"
-	"fmt"
-	"github.com/fbsobreira/gotron-sdk/pkg/proto/api"
 	"github.com/fbsobreira/gotron-sdk/pkg/proto/core"
-	"github.com/golang/glog"
+	"github.com/juju/errors"
 	"github.com/trezor/blockbook/bchain"
 	"math/big"
-	"strconv"
 )
 
 const TronTypeAddressHexLen = 42
@@ -20,9 +17,11 @@ type TrxParser struct {
 }
 
 type trxCompleteTransaction struct {
-	Tx    *api.TransactionExtention              `json:"tx"`
-	Type  core.Transaction_Contract_ContractType `json:"type"`
-	Value bchain.Trc20Transfer                   `json:"value"`
+	Tx     *core.Transaction `json:"tx,omitempty"`
+	Height int64             `json:"height"`
+	Type   core.Transaction_Contract_ContractType
+	Data   map[string]interface{} `json:"data"`
+	Value  *bchain.Trc20Transfer  `json:"value,omitempty"`
 }
 
 type TriggerContract struct {
@@ -65,11 +64,14 @@ func (p *TrxParser) GetAddrDescFromAddress(address string) (bchain.AddressDescri
 }
 
 func (p *TrxParser) GetAddrDescFromVout(output *bchain.Vout) (bchain.AddressDescriptor, error) {
-	return nil, nil
+	if len(output.ScriptPubKey.Addresses) != 1 {
+		return nil, bchain.ErrAddressMissing
+	}
+	return p.GetAddrDescFromAddress(output.ScriptPubKey.Addresses[0])
 }
 
 func (p *TrxParser) GetAddressesFromAddrDesc(addrDesc bchain.AddressDescriptor) ([]string, bool, error) {
-	return []string{}, true, nil
+	return []string{hex.EncodeToString(addrDesc)}, true, nil
 }
 
 func (p *TrxParser) GetScriptFromAddrDesc(addrDesc bchain.AddressDescriptor) ([]byte, error) {
@@ -96,72 +98,61 @@ func (p *TrxParser) PackedTxidLen() int {
 	return 32
 }
 
+func GetHeightFromTx(tx *bchain.Tx) (uint32, error) {
+	csd, ok := tx.CoinSpecificData.(trxCompleteTransaction)
+	if !ok {
+		return 0, errors.New("Missing CoinSpecificData")
+	}
+	return uint32(csd.Height), nil
+}
+
 func (p *TrxParser) TronTypeGetTrc20FromTx(tx *bchain.Tx) ([]bchain.Trc20Transfer, error) {
 	var trcs []bchain.Trc20Transfer
 	trx, ok := tx.CoinSpecificData.(trxCompleteTransaction)
 	if ok {
-		trcs = append(trcs, trx.Value)
+		if trx.Value != nil {
+			trcs = append(trcs, *trx.Value)
+		}
+	} else {
+		txx, err := p.rpc.conn.GetTransactionByID(tx.Txid)
+		if err != nil {
+			return nil, err
+		}
+		complete, err := p.rpc.GetComplete(txx, tx.Txid)
+		if err != nil {
+			return nil, err
+		}
+		if complete.Value != nil && complete.Value.Contract != "" {
+			trcs = append(trcs, *complete.Value)
+		}
 	}
 	return trcs, nil
 }
 
-func (p *TrxParser) trxtotx(tx *api.TransactionExtention, blocktime int64, confirmations uint32) (bchain.Tx, error) {
-	if len(tx.Transaction.RawData.Contract) == 0 {
-		return bchain.Tx{}, fmt.Errorf("No contract")
-	}
-
-	contractType := tx.Transaction.RawData.Contract[0].Type
-	contract, err := getContractInfo(contractType, tx.Transaction.RawData.Contract[0].Parameter)
+func (p *TrxParser) trxtotx(txid string, tx *core.Transaction, blocktime int64, confirmations uint32, height int64) (*bchain.Tx, error) {
+	complete, err := p.rpc.GetComplete(tx, txid)
 	if err != nil {
-		return bchain.Tx{}, err
+		return nil, err
 	}
 
-	var from, to []string
-	var amount int64
-	var contractAddr string
-	if contractType == core.Transaction_Contract_TransferContract {
-		data := contract.(core.TransferContract)
-		from = []string{hex.EncodeToString(data.OwnerAddress)}
-		to = []string{hex.EncodeToString(data.ToAddress)}
-		amount = data.Amount
-	} else {
-		data := contract.(core.TriggerSmartContract)
-		glog.Info(hex.EncodeToString(tx.Txid))
-		tran, err := p.rpc.conn.GetTransactionInfoByID(hex.EncodeToString(tx.Txid))
-		if err != nil || len(tran.Log) == 0 {
-			return bchain.Tx{}, err
-		}
-
-		if hex.EncodeToString(tran.Log[0].Topics[0]) != "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef" {
-			return bchain.Tx{}, fmt.Errorf("not transfer")
-		}
-
-		from = []string{"41" + hex.EncodeToString(tran.Log[0].Topics[1][12:])}
-		to = []string{"41" + hex.EncodeToString(tran.Log[0].Topics[2][12:])}
-		amount, _ = strconv.ParseInt(hex.EncodeToString(tran.Log[0].Data), 16, 64)
-		contractAddr = hex.EncodeToString(data.ContractAddress)
+	var from, to string
+	var amount big.Int
+	if complete.Value != nil {
+		from = complete.Value.From
+		to = complete.Value.To
+		amount = complete.Value.Amount
 	}
-
-	ct := trxCompleteTransaction{
-		Tx:   tx,
-		Type: contractType,
-		Value: bchain.Trc20Transfer{
-			contractAddr,
-			from[0],
-			to[0],
-			*big.NewInt(amount),
-		},
-	}
-	return bchain.Tx{
+	return &bchain.Tx{
 		Blocktime:     blocktime,
 		Confirmations: confirmations,
 		// Hex
 		// LockTime
-		Time: blocktime,
-		Txid: hex.EncodeToString(tx.Txid),
+		Time:        blocktime,
+		BlockHeight: uint32(height),
+		Txid:        txid,
 		Vin: []bchain.Vin{
 			{
-				Addresses: from,
+				Addresses: []string{from},
 				// Coinbase
 				// ScriptSig
 				// Sequence
@@ -172,13 +163,13 @@ func (p *TrxParser) trxtotx(tx *api.TransactionExtention, blocktime int64, confi
 		Vout: []bchain.Vout{
 			{
 				N:        0, // there is always up to one To address
-				ValueSat: *big.NewInt(amount),
+				ValueSat: amount,
 				ScriptPubKey: bchain.ScriptPubKey{
 					// Hex
-					Addresses: to,
+					Addresses: []string{to},
 				},
 			},
 		},
-		CoinSpecificData: ct,
+		CoinSpecificData: *complete,
 	}, nil
 }

@@ -223,6 +223,15 @@ func (w *Worker) GetTransactionFromBchainTx(bchainTx *bchain.Tx, height int, spe
 				vin.Addresses = bchainVin.Addresses
 				vin.IsAddress = true
 			}
+		} else if w.chainType == bchain.ChainTronType {
+			if len(bchainVin.Addresses) > 0 {
+				vin.AddrDesc, err = w.chainParser.GetAddrDescFromAddress(bchainVin.Addresses[0])
+				if err != nil {
+					glog.Errorf("GetAddrDescFromAddress error %v, tx %v, bchainVin %v", err, bchainTx.Txid, bchainVin)
+				}
+				vin.Addresses = bchainVin.Addresses
+				vin.IsAddress = true
+			}
 		}
 	}
 	vouts := make([]Vout, len(bchainTx.Vout))
@@ -276,6 +285,12 @@ func (w *Worker) GetTransactionFromBchainTx(bchainTx *bchain.Tx, height int, spe
 			Status:   ethTxData.Status,
 			Data:     ethTxData.Data,
 		}
+	} else if w.chainType == bchain.ChainTronType {
+		ets, err := w.chainParser.TronTypeGetTrc20FromTx(bchainTx)
+		if err != nil {
+			glog.Errorf("GetErc20FromTx error %v, %v", err, bchainTx)
+		}
+		tokens = w.getTokensFromTrc20(ets)
 	}
 	// for now do not return size, we would have to compute vsize of segwit transactions
 	// size:=len(bchainTx.Hex) / 2
@@ -436,6 +451,37 @@ func (w *Worker) getTokensFromErc20(erc20 []bchain.Erc20Transfer) []TokenTransfe
 			Value:    (*Amount)(&e.Tokens),
 			Name:     erc20c.Name,
 			Symbol:   erc20c.Symbol,
+		}
+	}
+	return tokens
+}
+
+func (w *Worker) getTokensFromTrc20(trc20 []bchain.Trc20Transfer) []TokenTransfer {
+	tokens := make([]TokenTransfer, len(trc20))
+	for i := range trc20 {
+		e := &trc20[i]
+		cd, err := w.chainParser.GetAddrDescFromAddress(e.Contract)
+		if err != nil {
+			glog.Errorf("GetAddrDescFromAddress error %v, contract %v", err, e.Contract)
+			continue
+		}
+		trc20c, err := w.chain.TronTypeGetTrc20ContractInfo(cd)
+		if err != nil {
+			glog.Errorf("GetErc20ContractInfo error %v, contract %v", err, e.Contract)
+			continue
+		}
+		if trc20c == nil {
+			trc20c = &bchain.Trc20Contract{}
+		}
+		tokens[i] = TokenTransfer{
+			Type:     TRC20TokenType,
+			Token:    e.Contract,
+			From:     e.From,
+			To:       e.To,
+			Decimals: trc20c.Decimals,
+			Value:    (*Amount)(&e.Amount),
+			Name:     trc20c.Name,
+			Symbol:   trc20c.Symbol,
 		}
 	}
 	return tokens
