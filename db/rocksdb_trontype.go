@@ -127,6 +127,9 @@ func (d *RocksDB) processAddressesAndContractsTronType(block *bchain.Block, addr
 			glog.Warningf("rocksdb: GetErc20FromTx %v - height %d, tx %v", err, block.Height, tx.Txid)
 		}
 		for _, t := range trc20 {
+			if t.Contract == "" {
+				continue
+			}
 			var contract, from, to bchain.AddressDescriptor
 			contract, err = d.chainParser.GetAddrDescFromAddress(t.Contract)
 			if err == nil {
