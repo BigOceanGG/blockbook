@@ -17,6 +17,8 @@ import (
 	"time"
 )
 
+const trc20TransferEventSignature = "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+
 type Configuration struct {
 	CoinName             string `json:"coin_name"`
 	CoinShortcut         string `json:"coin_shortcut"`
@@ -36,7 +38,7 @@ type TrxRPC struct {
 	conn        *client.GrpcClient
 	pushHandler func(bchain.NotificationType)
 	mq          *bchain.MQ
-	Mempool     *bchain.MempoolEthereumType
+	Mempool     *bchain.MempoolTronType
 	ChainConfig *Configuration
 	Parser      *TrxParser
 }
@@ -69,7 +71,7 @@ func NewTrxRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)
 // CreateMempool creates mempool if not already created, however does not initialize it
 func (b *TrxRPC) CreateMempool(chain bchain.BlockChain) (bchain.Mempool, error) {
 	if b.Mempool == nil {
-		b.Mempool = bchain.NewMempoolEthereumType(chain, b.ChainConfig.MempoolTxTimeoutHours, b.ChainConfig.QueryBackendOnMempoolResync)
+		b.Mempool = bchain.NewMempoolTronType(chain, b.ChainConfig.MempoolTxTimeoutHours, b.ChainConfig.QueryBackendOnMempoolResync)
 	}
 	return b.Mempool, nil
 }
@@ -307,7 +309,7 @@ func (b *TrxRPC) GetComplete(tx *core.Transaction, txinfo *core.TransactionInfo)
 		}
 		res.Value = &value
 	} else if contractType == core.Transaction_Contract_TriggerSmartContract {
-		if len(txinfo.Log) > 0 && len(txinfo.Log[0].Topics) > 0 && hex.EncodeToString(txinfo.Log[0].Topics[0]) == "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef" {
+		if len(txinfo.Log) > 0 && len(txinfo.Log[0].Topics) > 0 && hex.EncodeToString(txinfo.Log[0].Topics[0]) == trc20TransferEventSignature {
 			value.From = "41" + hex.EncodeToString(txinfo.Log[0].Topics[1][12:])
 			value.To = "41" + hex.EncodeToString(txinfo.Log[0].Topics[2][12:])
 			if amount, err := strconv.ParseInt(hex.EncodeToString(txinfo.Log[0].Data), 16, 64); err == nil {
@@ -321,6 +323,24 @@ func (b *TrxRPC) GetComplete(tx *core.Transaction, txinfo *core.TransactionInfo)
 	}
 
 	return &res, nil
+}
+
+func (b *TrxRPC) TronTypeGetTransactionNotify(tx *bchain.Tx) bool {
+	csd, ok := tx.CoinSpecificData.(trxCompleteTransaction)
+	if ok {
+		contractType := csd.Tx.RawData.Contract[0].Type
+		if contractType == core.Transaction_Contract_TransferContract {
+			return true
+		}
+		if contractType == core.Transaction_Contract_TriggerSmartContract {
+			if len(csd.TxInfo.Log) > 0 &&
+				len(csd.TxInfo.Log[0].Topics) > 0 &&
+				hex.EncodeToString(csd.TxInfo.Log[0].Topics[0]) == trc20TransferEventSignature {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (b *TrxRPC) GetTransactionSpecific(tx *bchain.Tx) (json.RawMessage, error) {

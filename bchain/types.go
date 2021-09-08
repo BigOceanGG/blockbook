@@ -112,6 +112,7 @@ type MempoolTx struct {
 	Blocktime        int64           `json:"blocktime,omitempty"`
 	Blockheight      uint32          `json:"blockHeight"`
 	Erc20            []Erc20Transfer `json:"-"`
+	Trc20            []Trc20Transfer `json:"-"`
 	CoinSpecificData interface{}     `json:"-"`
 }
 
@@ -299,6 +300,7 @@ type BlockChain interface {
 	TronTypeGetBalance(addrDesc AddressDescriptor) (*big.Int, error)
 	TronTypeGetTrc20ContractInfo(contractDesc AddressDescriptor) (*Trc20Contract, error)
 	TronTypeGetTrc20ContractBalance(addrDesc, contractDesc AddressDescriptor) (*big.Int, error)
+	TronTypeGetTransactionNotify(tx *Tx) bool
 }
 
 // BlockChainParser defines common interface to parsing and conversions of block chain data

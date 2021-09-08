@@ -336,6 +336,11 @@ func (c *blockChainWithMetrics) TronTypeGetTrc20ContractBalance(addrDesc, contra
 	return c.b.TronTypeGetTrc20ContractBalance(addrDesc, contractDesc)
 }
 
+func (c *blockChainWithMetrics) TronTypeGetTransactionNotify(tx *bchain.Tx) bool {
+	defer func(s time.Time) { c.observeRPCLatency("TronTypeGetTransactionNotify", s, nil) }(time.Now())
+	return c.b.TronTypeGetTransactionNotify(tx)
+}
+
 type mempoolWithMetrics struct {
 	mempool bchain.Mempool
 	m       *common.Metrics

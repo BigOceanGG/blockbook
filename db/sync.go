@@ -227,7 +227,7 @@ func (w *SyncWorker) notify(hash string, height uint32) {
 		} else if chainType == bchain.ChainBitcoinType {
 			mempool.(*bchain.MempoolBitcoinType).Notify(&tx, height)
 		} else if chainType == bchain.ChainTronType {
-
+			mempool.(*bchain.MempoolTronType).Notify(&tx, tx.Txid, height)
 		} else {
 			glog.Error("Unknown chain type")
 		}
