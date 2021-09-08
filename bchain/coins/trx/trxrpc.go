@@ -136,6 +136,7 @@ func (b *TrxRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var cblock bchain.Block
 	cblock.BlockHeader = bchain.BlockHeader{
 		Hash:          hash,
@@ -145,12 +146,18 @@ func (b *TrxRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
 		Time:          block.BlockHeader.RawData.Timestamp,
 	}
 
-	blockExtention, err := b.conn.GetBlockByNum(block.BlockHeader.RawData.Number)
+	trans, err := b.conn.GetBlockInfoByNum(block.BlockHeader.RawData.Number)
 	if err != nil {
 		return nil, err
 	}
-	for _, tx := range blockExtention.Transactions {
-		btx, err := b.Parser.trxtotx(hex.EncodeToString(tx.Txid), tx.Transaction, block.BlockHeader.RawData.Timestamp, uint32(confirmations), block.BlockHeader.RawData.Number)
+
+	if len(trans.TransactionInfo) != len(block.Transactions) {
+		glog.Error("Inconsistent number of transactions")
+		return nil, errors.New("Inconsistent number of transactions")
+	}
+
+	for i, tx := range trans.TransactionInfo {
+		btx, err := b.Parser.trxtotx(block.Transactions[i], tx, uint32(confirmations))
 		if err == nil {
 			cblock.Txs = append(cblock.Txs, *btx)
 		}
@@ -238,6 +245,7 @@ func (b *TrxRPC) GetTransaction(txid string) (*bchain.Tx, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	txinfo, err := b.conn.GetTransactionInfoByID(txid)
 	if err != nil {
 		return nil, err
@@ -247,7 +255,7 @@ func (b *TrxRPC) GetTransaction(txid string) (*bchain.Tx, error) {
 	if err != nil {
 		return nil, err
 	}
-	return b.Parser.trxtotx(txid, tx, txinfo.BlockTimeStamp, uint32(confirmations), txinfo.BlockNumber)
+	return b.Parser.trxtotx(tx, txinfo, uint32(confirmations))
 }
 
 func (b *TrxRPC) GetChainInfo() (*bchain.ChainInfo, error) {
@@ -274,25 +282,16 @@ func (b *TrxRPC) GetTransactionForMempool(txid string) (*bchain.Tx, error) {
 	return b.GetTransaction(txid)
 }
 
-func (b *TrxRPC) GetComplete(tx *core.Transaction, txid string) (*trxCompleteTransaction, error) {
+func (b *TrxRPC) GetComplete(tx *core.Transaction, txinfo *core.TransactionInfo) (*trxCompleteTransaction, error) {
 	contractType := tx.RawData.Contract[0].Type
 	data, err := getContract(contractType, tx.RawData.Contract[0].Parameter)
 	if err != nil {
 		return nil, err
 	}
 
-	tran, err := b.conn.GetTransactionInfoByID(txid)
-	if err != nil {
-		return nil, err
-	}
-
 	res := trxCompleteTransaction{
-		Tx:   tx,
-		Txid: txid,
-		//Data:   data,
-		Type:        contractType,
-		BlockNumber: tran.BlockNumber,
-		BlockTime:   tran.BlockTimeStamp,
+		Tx:     tx,
+		TxInfo: txinfo,
 	}
 
 	var value bchain.Trc20Transfer
@@ -308,10 +307,10 @@ func (b *TrxRPC) GetComplete(tx *core.Transaction, txid string) (*trxCompleteTra
 		}
 		res.Value = &value
 	} else if contractType == core.Transaction_Contract_TriggerSmartContract {
-		if len(tran.Log) > 0 && len(tran.Log[0].Topics) > 0 && hex.EncodeToString(tran.Log[0].Topics[0]) == "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef" {
-			value.From = "41" + hex.EncodeToString(tran.Log[0].Topics[1][12:])
-			value.To = "41" + hex.EncodeToString(tran.Log[0].Topics[2][12:])
-			if amount, err := strconv.ParseInt(hex.EncodeToString(tran.Log[0].Data), 16, 64); err == nil {
+		if len(txinfo.Log) > 0 && len(txinfo.Log[0].Topics) > 0 && hex.EncodeToString(txinfo.Log[0].Topics[0]) == "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef" {
+			value.From = "41" + hex.EncodeToString(txinfo.Log[0].Topics[1][12:])
+			value.To = "41" + hex.EncodeToString(txinfo.Log[0].Topics[2][12:])
+			if amount, err := strconv.ParseInt(hex.EncodeToString(txinfo.Log[0].Data), 16, 64); err == nil {
 				value.Amount = *big.NewInt(amount)
 			}
 			if v, ok := data["ContractAddress"]; ok && len(v.([]uint8)) > 0 {
@@ -332,7 +331,12 @@ func (b *TrxRPC) GetTransactionSpecific(tx *bchain.Tx) (json.RawMessage, error) 
 			return nil, err
 		}
 
-		complete, err := b.GetComplete(txx, tx.Txid)
+		txinfo, err := b.conn.GetTransactionInfoByID(tx.Txid)
+		if err != nil {
+			return nil, err
+		}
+
+		complete, err := b.GetComplete(txx, txinfo)
 		if err != nil {
 			return nil, err
 		}

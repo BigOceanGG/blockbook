@@ -214,23 +214,20 @@ func (w *SyncWorker) notify(hash string, height uint32) {
 		return
 	}
 
-	block, err := w.chain.GetBlockInfo(hash)
+	block, err := w.chain.GetBlock(hash, height)
 	if err != nil {
 		glog.Error(err)
 		return
 	}
 
-	for _, txid := range block.Txids {
-		tx, err := w.chain.GetTransaction(txid)
-		if err != nil {
-			glog.Error("cannot get transaction ", txid, ": ", err)
-			continue
-		}
+	for _, tx := range block.Txs {
 		chainType := w.chain.GetChainParser().GetChainType()
 		if chainType == bchain.ChainEthereumType {
-			mempool.(*bchain.MempoolEthereumType).Notify(tx, txid, height)
+			mempool.(*bchain.MempoolEthereumType).Notify(&tx, tx.Txid, height)
 		} else if chainType == bchain.ChainBitcoinType {
-			mempool.(*bchain.MempoolBitcoinType).Notify(tx, height)
+			mempool.(*bchain.MempoolBitcoinType).Notify(&tx, height)
+		} else if chainType == bchain.ChainTronType {
+
 		} else {
 			glog.Error("Unknown chain type")
 		}
