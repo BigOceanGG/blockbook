@@ -92,7 +92,7 @@ func (d *RocksDB) addToAddressesAndContractsTronType(addrDesc bchain.AddressDesc
 			}
 		}
 	}
-	counted := addToAddressesMap(addresses, strAddrDesc, btxID, index)
+	counted := addToAddressesMap(addresses, string(addrDesc), btxID, index)
 	if !counted {
 		ac.TotalTxs++
 	}
@@ -106,6 +106,15 @@ func (d *RocksDB) processAddressesAndContractsTronType(block *bchain.Block, addr
 		if err != nil {
 			return nil, err
 		}
+
+		values, err := d.chainParser.TronTypeGetTrc20FromTx(&tx)
+		if err != nil {
+			return nil, err
+		}
+		if len(values) == 0 {
+			continue
+		}
+
 		blockTx := &blockTxs[txi]
 		blockTx.btxID = btxID
 		var from, to bchain.AddressDescriptor
