@@ -166,7 +166,7 @@ func (b *TrxRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
 		return nil, err
 	}
 
-	if len(trans.TransactionInfo) != len(block.Transactions) {
+	if len(trans.TransactionInfo) != len(block.Transactions) && block.BlockHeader.RawData.Number != 0 {
 		glog.Error("Inconsistent number of transactions")
 		return nil, errors.New("Inconsistent number of transactions")
 	}
