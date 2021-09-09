@@ -1,18 +1,24 @@
 package trx
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
 	"github.com/fbsobreira/gotron-sdk/pkg/client"
 	common2 "github.com/fbsobreira/gotron-sdk/pkg/common"
+	"github.com/fbsobreira/gotron-sdk/pkg/proto/api"
 	"github.com/fbsobreira/gotron-sdk/pkg/proto/core"
 	"github.com/golang/glog"
 	"github.com/juju/errors"
 	"github.com/trezor/blockbook/bchain"
 	"github.com/trezor/blockbook/common"
 	"google.golang.org/grpc"
+	"io"
+	"io/ioutil"
 	"math/big"
+	"net/http"
+	"runtime/debug"
 	"strconv"
 	"time"
 )
@@ -41,6 +47,13 @@ type TrxRPC struct {
 	Mempool     *bchain.MempoolTronType
 	ChainConfig *Configuration
 	Parser      *TrxParser
+}
+
+type TrxTxResult struct {
+	Result  bool   `json:"result"`
+	Code    string `json:"code"`
+	Txid    string `json:"txid"`
+	Message string `json:"message"`
 }
 
 func NewTrxRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)) (bchain.BlockChain, error) {
@@ -380,14 +393,79 @@ func (b *TrxRPC) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func (b *TrxRPC) SendRawTransaction(tx string) (string, error) {
-	var t core.Transaction
-	ret, err := b.conn.Broadcast(&t)
+func (b *TrxRPC) SendRawTransaction(hex string) (string, error) {
+	//var tx core.Transaction
+	//tx.Signature = append(tx.Signature, []byte(hex))
+	//ret, err := b.conn.Broadcast(&tx)
+	//if err != nil {
+	//	glog.Info(ret)
+	//}
+
+	client := http.Client{Timeout: 25 * time.Second}
+	req := make(map[string]string)
+	req["transaction"] = hex
+
+	var res TrxTxResult
+	err := b.PostCall(client, "https://api.trongrid.io/wallet/broadcasthex", req, &res)
 	if err != nil {
-		return "", err
+		return res.Txid, err
 	}
 
-	return hex.EncodeToString(ret.Message), nil
+	if res.Code != api.ReturnResponseCode_name[0] {
+		return res.Code, errors.Errorf("%v", res.Message)
+	}
+
+	return res.Txid, nil
+}
+
+func safeDecodeResponse(body io.ReadCloser, res interface{}) (err error) {
+	var data []byte
+	defer func() {
+		if r := recover(); r != nil {
+			glog.Error("unmarshal json recovered from panic: ", r, "; data: ", string(data))
+			debug.PrintStack()
+			if len(data) > 0 && len(data) < 2048 {
+				err = errors.Errorf("Error: %v", string(data))
+			} else {
+				err = errors.New("Internal error")
+			}
+		}
+	}()
+	data, err = ioutil.ReadAll(body)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, &res)
+}
+
+func (b *TrxRPC) PostCall(client http.Client, url string, req interface{}, res interface{}) error {
+	configData, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(configData)))
+	if err != nil {
+		return err
+	}
+	httpRes, err := client.Do(httpReq)
+	// in some cases the httpRes can contain data even if it returns error
+	// see http://devs.cloudimmunity.com/gotchas-and-common-mistakes-in-go-golang/
+	if httpRes != nil {
+		defer httpRes.Body.Close()
+	}
+	if err != nil {
+		return err
+	}
+	// if server returns HTTP error code it might not return json with response
+	// handle both cases
+	if httpRes.StatusCode != 200 {
+		err = safeDecodeResponse(httpRes.Body, &res)
+		if err != nil {
+			return errors.Errorf("%v %v", httpRes.Status, err)
+		}
+		return nil
+	}
+	return safeDecodeResponse(httpRes.Body, &res)
 }
 
 func (b *TrxRPC) TronTypeGetBalance(addrDesc bchain.AddressDescriptor) (*big.Int, error) {
