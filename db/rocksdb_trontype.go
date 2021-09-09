@@ -52,7 +52,7 @@ func (d *RocksDB) GetTronAddrDescContracts(addrDesc bchain.AddressDescriptor) (*
 	}, nil
 }
 
-func (d *RocksDB) addToContractsTronType(addrDesc bchain.AddressDescriptor, btxID []byte, contract bchain.AddressDescriptor, addresses addressesMap, addressContracts map[string]*AddrContracts) error {
+func (d *RocksDB) addToAddressesAndContractsTronType(addrDesc bchain.AddressDescriptor, btxID []byte, index int32, contract bchain.AddressDescriptor, addresses addressesMap, addressContracts map[string]*AddrContracts, addTxCount bool) error {
 	var err error
 	strAddrDesc := hex.EncodeToString(addrDesc)
 	ac, e := addressContracts[strAddrDesc]
@@ -69,33 +69,44 @@ func (d *RocksDB) addToContractsTronType(addrDesc bchain.AddressDescriptor, btxI
 	} else {
 		d.cbs.balancesHit++
 	}
-	if contract != nil {
+	if contract == nil {
+		if addTxCount {
+			ac.NonContractTxs++
+		}
+	} else if contract != nil {
 		// do not store contracts for 0x0000000000000000000000000000000000000000 address
 		if !isZeroAddress(addrDesc) {
 			// locate the contract and set i to the index in the array of contracts
-			_, found := findContractInAddressContracts(contract, ac.Contracts)
+			i, found := findContractInAddressContracts(contract, ac.Contracts)
 			if !found {
+				i = len(ac.Contracts)
 				ac.Contracts = append(ac.Contracts, AddrContract{Contract: contract})
+			}
+			if index < 0 {
+				index = ^int32(i + 1)
+			} else {
+				index = int32(i + 1)
+			}
+			if addTxCount {
+				ac.Contracts[i].Txs++
 			}
 		}
 	}
-	at, found := addresses[strAddrDesc]
-	if !found {
-		addresses[strAddrDesc] = append(at, txIndexes{
-			btxID: btxID,
-		})
+	counted := addToAddressesMap(addresses, strAddrDesc, btxID, index)
+	if !counted {
+		ac.TotalTxs++
 	}
 	return nil
 }
 
 func (d *RocksDB) processAddressesAndContractsTronType(block *bchain.Block, addresses addressesMap, addressContracts map[string]*AddrContracts) ([]tronBlockTx, error) {
-	var blockTxs []tronBlockTx
-	for _, tx := range block.Txs {
+	blockTxs := make([]tronBlockTx, len(block.Txs))
+	for txi, tx := range block.Txs {
 		btxID, err := d.chainParser.PackTxid(tx.Txid)
 		if err != nil {
 			return nil, err
 		}
-		var blockTx tronBlockTx
+		blockTx := &blockTxs[txi]
 		blockTx.btxID = btxID
 		var from, to bchain.AddressDescriptor
 		// there is only one output address in EthereumType transaction, store it in format txid 0
@@ -108,6 +119,9 @@ func (d *RocksDB) processAddressesAndContractsTronType(block *bchain.Block, addr
 				}
 				continue
 			}
+			if err = d.addToAddressesAndContractsTronType(to, btxID, 0, nil, addresses, addressContracts, true); err != nil {
+				return nil, err
+			}
 			blockTx.to = to
 		}
 		// there is only one input address in EthereumType transaction, store it in format txid ^0
@@ -119,6 +133,9 @@ func (d *RocksDB) processAddressesAndContractsTronType(block *bchain.Block, addr
 				}
 				continue
 			}
+			if err = d.addToAddressesAndContractsTronType(from, btxID, ^int32(0), nil, addresses, addressContracts, !bytes.Equal(from, to)); err != nil {
+				return nil, err
+			}
 			blockTx.from = from
 		}
 		// store erc20 transfers
@@ -126,7 +143,9 @@ func (d *RocksDB) processAddressesAndContractsTronType(block *bchain.Block, addr
 		if err != nil {
 			glog.Warningf("rocksdb: GetErc20FromTx %v - height %d, tx %v", err, block.Height, tx.Txid)
 		}
-		for _, t := range trc20 {
+		blockTx.contracts = make([]ethBlockTxContract, len(trc20)*2)
+		j := 0
+		for i, t := range trc20 {
 			if t.Contract == "" {
 				continue
 			}
@@ -142,15 +161,26 @@ func (d *RocksDB) processAddressesAndContractsTronType(block *bchain.Block, addr
 				glog.Warningf("rocksdb: GetTrc20FromTx %v - height %d, tx %v, transfer %v", err, block.Height, tx.Txid, t)
 				continue
 			}
-			if err = d.addToContractsTronType(to, btxID, contract, addresses, addressContracts); err != nil {
+			if err = d.addToAddressesAndContractsTronType(to, btxID, int32(i), contract, addresses, addressContracts, true); err != nil {
 				return nil, err
 			}
-			blockTx.contracts = append(blockTx.contracts, ethBlockTxContract{
-				from,
-				contract,
-			})
+			eq := bytes.Equal(from, to)
+			bc := &blockTx.contracts[j]
+			j++
+			bc.addr = from
+			bc.contract = contract
+			if err = d.addToAddressesAndContractsTronType(from, btxID, ^int32(i), contract, addresses, addressContracts, !eq); err != nil {
+				return nil, err
+			}
+			// add to address to blockTx.contracts only if it is different from from address
+			if !eq {
+				bc = &blockTx.contracts[j]
+				j++
+				bc.addr = to
+				bc.contract = contract
+			}
 		}
-		blockTxs = append(blockTxs, blockTx)
+		blockTx.contracts = blockTx.contracts[:j]
 	}
 
 	return blockTxs, nil

@@ -110,6 +110,21 @@ func GetHeightFromTx(tx *bchain.Tx) (uint32, error) {
 	return uint32(csd.TxInfo.BlockNumber), nil
 }
 
+// EthereumTxData contains ethereum specific transaction data
+type TronTxData struct {
+	Status core.Transaction_ResultContractResult `json:"status"`
+}
+
+func GetTronTxData(tx *bchain.Tx) *TronTxData {
+	csd, ok := tx.CoinSpecificData.(trxCompleteTransaction)
+	if !ok {
+		return nil
+	}
+	return &TronTxData{
+		csd.TxInfo.Receipt.Result,
+	}
+}
+
 func (p *TrxParser) TronTypeGetTrc20FromTx(tx *bchain.Tx) ([]bchain.Trc20Transfer, error) {
 	var trcs []bchain.Trc20Transfer
 	trx, ok := tx.CoinSpecificData.(trxCompleteTransaction)
