@@ -868,7 +868,7 @@ func (w *Worker) getTronTypeAddressBalances(addrDesc bchain.AddressDescriptor, d
 	}
 	b, err := w.chain.TronTypeGetBalance(addrDesc)
 	if err != nil {
-		return nil, nil, nil, 0, 0, 0, errors.Annotatef(err, "EthereumTypeGetBalance %v", addrDesc)
+		return nil, nil, nil, 0, 0, 0, errors.Annotatef(err, "TronTypeGetBalance %v", addrDesc)
 	}
 	var filterDesc bchain.AddressDescriptor
 	if filter.Contract != "" {
