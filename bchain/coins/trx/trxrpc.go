@@ -134,15 +134,15 @@ func (b *TrxRPC) GetBestBlockHeight() (uint32, error) {
 }
 
 func (b *TrxRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
-	if hash == "" {
-		h, err := b.GetBlockHash(height)
+	if height <= 0 {
+		b, err := b.conn.GetBlockByID(hash)
 		if err != nil {
 			return nil, err
 		}
-		hash = h
+		height = uint32(b.BlockHeader.RawData.Number)
 	}
 
-	block, err := b.conn.GetBlockByID(hash)
+	block, err := b.conn.GetBlockByNum(int64(height))
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +154,7 @@ func (b *TrxRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
 
 	var cblock bchain.Block
 	cblock.BlockHeader = bchain.BlockHeader{
-		Hash:          hash,
+		Hash:          hex.EncodeToString(block.Blockid),
 		Prev:          hex.EncodeToString(block.BlockHeader.RawData.ParentHash),
 		Height:        uint32(block.BlockHeader.RawData.Number),
 		Confirmations: confirmations,
@@ -166,14 +166,31 @@ func (b *TrxRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
 		return nil, err
 	}
 
-	if len(trans.TransactionInfo) != len(block.Transactions) && block.BlockHeader.RawData.Number != 0 {
-		glog.Error("Inconsistent number of transactions")
-		return nil, errors.New("Inconsistent number of transactions")
+	mapTrans := make(map[string]*core.TransactionInfo)
+	for _, tran := range trans.TransactionInfo {
+		mapTrans[string(tran.Id)] = tran
 	}
 
-	for i, tx := range trans.TransactionInfo {
-		btx, err := b.Parser.trxtotx(block.Transactions[i], tx, uint32(confirmations))
+	for _, tx := range block.Transactions {
+		var txinfo *core.TransactionInfo
+		if len(tx.Transaction.RawData.Contract) > 0 && tx.Transaction.RawData.Contract[0].Type == core.Transaction_Contract_TriggerSmartContract {
+			v, ok := mapTrans[string(tx.Txid)]
+			if !ok {
+				glog.Error("can not find TransactionInfo")
+				return nil, errors.New("can not find TransactionInfo")
+			}
+			txinfo = v
+		}
+		btx, err := b.Parser.trxtotx(tx.Transaction, txinfo)
 		if err == nil {
+			btx.BlockHeight = uint32(block.BlockHeader.RawData.Number)
+			btx.Txid = hex.EncodeToString(tx.Txid)
+			btx.Blocktime = block.BlockHeader.RawData.Timestamp
+			btx.Confirmations = uint32(confirmations)
+			csd, ok := btx.CoinSpecificData.(trxCompleteTransaction)
+			if ok {
+				csd.BlockNumber = uint32(block.BlockHeader.RawData.Number)
+			}
 			cblock.Txs = append(cblock.Txs, *btx)
 		}
 	}
@@ -261,16 +278,15 @@ func (b *TrxRPC) GetTransaction(txid string) (*bchain.Tx, error) {
 		return nil, err
 	}
 
-	txinfo, err := b.conn.GetTransactionInfoByID(txid)
-	if err != nil {
-		return nil, err
+	var txinfo *core.TransactionInfo
+	if len(tx.RawData.Contract) > 0 && tx.RawData.Contract[0].Type == core.Transaction_Contract_TriggerSmartContract {
+		txinfo, err = b.conn.GetTransactionInfoByID(txid)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	confirmations, err := b.computeConfirmations(txinfo.BlockNumber)
-	if err != nil {
-		return nil, err
-	}
-	return b.Parser.trxtotx(tx, txinfo, uint32(confirmations))
+	return b.Parser.trxtotx(tx, txinfo)
 }
 
 func (b *TrxRPC) GetChainInfo() (*bchain.ChainInfo, error) {

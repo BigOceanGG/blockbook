@@ -18,10 +18,10 @@ type TrxParser struct {
 }
 
 type trxCompleteTransaction struct {
-	Tx     *core.Transaction     `protobuf:"bytes,1,opt,name=tx,proto3" json:"tx,omitempty"`
-	TxInfo *core.TransactionInfo `protobuf:"bytes,2,opt,name=txinfo,proto3" json:"txinfo,omitempty"`
-	Value  *bchain.Trc20Transfer `protobuf:"bytes,3,opt,name=value" json:"value,omitempty"`
-	//Data   map[string]interface{} 				   `protobuf:"bytes,4,opt,name=data" json:"data"`
+	Tx          *core.Transaction     `protobuf:"bytes,1,opt,name=tx,proto3" json:"tx,omitempty"`
+	TxInfo      *core.TransactionInfo `protobuf:"bytes,2,opt,name=txinfo,proto3" json:"txinfo,omitempty"`
+	Value       *bchain.Trc20Transfer `protobuf:"bytes,3,opt,name=value" json:"value,omitempty"`
+	BlockNumber uint32                `protobuf:"varint,4,opt,name=blockNumber,proto3" json:"blockNumber,omitempty"`
 }
 
 func (m *trxCompleteTransaction) Reset()         { *m = trxCompleteTransaction{} }
@@ -107,22 +107,12 @@ func GetHeightFromTx(tx *bchain.Tx) (uint32, error) {
 	if !ok {
 		return 0, errors.New("Missing CoinSpecificData")
 	}
-	return uint32(csd.TxInfo.BlockNumber), nil
+	return csd.BlockNumber, nil
 }
 
 // EthereumTxData contains ethereum specific transaction data
 type TronTxData struct {
 	Status core.Transaction_ResultContractResult `json:"status"`
-}
-
-func GetTronTxData(tx *bchain.Tx) *TronTxData {
-	csd, ok := tx.CoinSpecificData.(trxCompleteTransaction)
-	if !ok {
-		return nil
-	}
-	return &TronTxData{
-		csd.TxInfo.Receipt.Result,
-	}
 }
 
 func (p *TrxParser) TronTypeGetTrc20FromTx(tx *bchain.Tx) ([]bchain.Trc20Transfer, error) {
@@ -137,7 +127,7 @@ func (p *TrxParser) TronTypeGetTrc20FromTx(tx *bchain.Tx) ([]bchain.Trc20Transfe
 	return nil, errors.New("no trxCompleteTransaction")
 }
 
-func (p *TrxParser) trxtotx(tx *core.Transaction, txinfo *core.TransactionInfo, confirmations uint32) (*bchain.Tx, error) {
+func (p *TrxParser) trxtotx(tx *core.Transaction, txinfo *core.TransactionInfo) (*bchain.Tx, error) {
 	complete, err := p.rpc.GetComplete(tx, txinfo)
 	if err != nil {
 		return nil, err
@@ -151,10 +141,6 @@ func (p *TrxParser) trxtotx(tx *core.Transaction, txinfo *core.TransactionInfo, 
 		amount = complete.Value.Amount
 	}
 	return &bchain.Tx{
-		Blocktime:     txinfo.BlockTimeStamp,
-		Confirmations: confirmations,
-		BlockHeight:   uint32(txinfo.BlockNumber),
-		Txid:          hex.EncodeToString(txinfo.Id),
 		Vin: []bchain.Vin{
 			{
 				Addresses: []string{from},
@@ -194,7 +180,7 @@ func (p *TrxParser) UnpackTx(buf []byte) (*bchain.Tx, uint32, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	tx, err := p.trxtotx(trx.Tx, trx.TxInfo, 0)
+	tx, err := p.trxtotx(trx.Tx, trx.TxInfo)
 	if err != nil {
 		return nil, 0, err
 	}

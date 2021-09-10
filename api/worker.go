@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/fbsobreira/gotron-sdk/pkg/proto/core"
-	"github.com/trezor/blockbook/bchain/coins/trx"
 	"math"
 	"math/big"
 	"os"
@@ -1310,26 +1308,23 @@ func (w *Worker) balanceHistoryForTxid(addrDesc bchain.AddressDescriptor, txid s
 		}
 	} else if w.chainType == bchain.ChainTronType {
 		var value big.Int
-		ethTxData := trx.GetTronTxData(bchainTx)
-		// add received amount only for OK or unknown status (old) transactions
-		if ethTxData.Status == core.Transaction_Result_SUCCESS {
-			if len(bchainTx.Vout) > 0 {
-				bchainVout := &bchainTx.Vout[0]
-				value = bchainVout.ValueSat
-				if len(bchainVout.ScriptPubKey.Addresses) > 0 {
-					txAddrDesc, err := w.chainParser.GetAddrDescFromAddress(bchainVout.ScriptPubKey.Addresses[0])
-					if err != nil {
-						return nil, err
-					}
-					if bytes.Equal(addrDesc, txAddrDesc) {
-						(*big.Int)(bh.ReceivedSat).Add((*big.Int)(bh.ReceivedSat), &value)
-					}
-					if _, found := selfAddrDesc[string(txAddrDesc)]; found {
-						countSentToSelf = true
-					}
+		if len(bchainTx.Vout) > 0 {
+			bchainVout := &bchainTx.Vout[0]
+			value = bchainVout.ValueSat
+			if len(bchainVout.ScriptPubKey.Addresses) > 0 {
+				txAddrDesc, err := w.chainParser.GetAddrDescFromAddress(bchainVout.ScriptPubKey.Addresses[0])
+				if err != nil {
+					return nil, err
+				}
+				if bytes.Equal(addrDesc, txAddrDesc) {
+					(*big.Int)(bh.ReceivedSat).Add((*big.Int)(bh.ReceivedSat), &value)
+				}
+				if _, found := selfAddrDesc[string(txAddrDesc)]; found {
+					countSentToSelf = true
 				}
 			}
 		}
+
 		for i := range bchainTx.Vin {
 			bchainVin := &bchainTx.Vin[i]
 			if len(bchainVin.Addresses) > 0 {
@@ -1339,12 +1334,11 @@ func (w *Worker) balanceHistoryForTxid(addrDesc bchain.AddressDescriptor, txid s
 				}
 				if bytes.Equal(addrDesc, txAddrDesc) {
 					// add received amount only for OK or unknown status (old) transactions, fees always
-					if ethTxData.Status == core.Transaction_Result_SUCCESS {
-						(*big.Int)(bh.SentSat).Add((*big.Int)(bh.SentSat), &value)
-						if countSentToSelf {
-							if _, found := selfAddrDesc[string(txAddrDesc)]; found {
-								(*big.Int)(bh.SentToSelfSat).Add((*big.Int)(bh.SentToSelfSat), &value)
-							}
+
+					(*big.Int)(bh.SentSat).Add((*big.Int)(bh.SentSat), &value)
+					if countSentToSelf {
+						if _, found := selfAddrDesc[string(txAddrDesc)]; found {
+							(*big.Int)(bh.SentToSelfSat).Add((*big.Int)(bh.SentToSelfSat), &value)
 						}
 					}
 				}
