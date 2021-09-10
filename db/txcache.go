@@ -57,6 +57,9 @@ func (c *TxCache) GetTransaction(txid string) (*bchain.Tx, int, error) {
 	if err != nil {
 		return nil, 0, err
 	}
+	if c.chainType == bchain.ChainTronType {
+		tx.Confirmations = c.is.BestHeight - h + 1
+	}
 	c.metrics.TxCacheEfficiency.With(common.Labels{"status": "miss"}).Inc()
 	// cache only confirmed transactions
 	if tx.Confirmations > 0 {
@@ -91,6 +94,7 @@ func (c *TxCache) GetTransaction(txid string) (*bchain.Tx, int, error) {
 			if err != nil {
 				return nil, 0, err
 			}
+			tx.BlockHeight = h
 		} else {
 			return nil, 0, errors.New("Unknown chain type")
 		}

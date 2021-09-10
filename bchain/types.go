@@ -229,7 +229,7 @@ type Erc20Transfer struct {
 }
 
 type Trc20Transfer struct {
-	Contract string  `protobuf:"bytes,1,opt,name=Coinbase" json:"Coinbase"`
+	Contract string  `protobuf:"bytes,1,opt,name=Coinbase" json:"contract"`
 	From     string  `protobuf:"bytes,2,opt,name=from" json:"from"`
 	To       string  `protobuf:"bytes,3,opt,name=to" json:"to"`
 	Amount   big.Int `protobuf:"bytes,4,opt,name=amount" json:"amount"`

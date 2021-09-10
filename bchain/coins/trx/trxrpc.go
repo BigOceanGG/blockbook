@@ -147,18 +147,12 @@ func (b *TrxRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
 		return nil, err
 	}
 
-	confirmations, err := b.computeConfirmations(block.BlockHeader.RawData.Number)
-	if err != nil {
-		return nil, err
-	}
-
 	var cblock bchain.Block
 	cblock.BlockHeader = bchain.BlockHeader{
-		Hash:          hex.EncodeToString(block.Blockid),
-		Prev:          hex.EncodeToString(block.BlockHeader.RawData.ParentHash),
-		Height:        uint32(block.BlockHeader.RawData.Number),
-		Confirmations: confirmations,
-		Time:          block.BlockHeader.RawData.Timestamp,
+		Hash:   hex.EncodeToString(block.Blockid),
+		Prev:   hex.EncodeToString(block.BlockHeader.RawData.ParentHash),
+		Height: uint32(block.BlockHeader.RawData.Number),
+		Time:   block.BlockHeader.RawData.Timestamp,
 	}
 
 	trans, err := b.conn.GetBlockInfoByNum(block.BlockHeader.RawData.Number)
@@ -169,6 +163,10 @@ func (b *TrxRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
 	mapTrans := make(map[string]*core.TransactionInfo)
 	for _, tran := range trans.TransactionInfo {
 		mapTrans[string(tran.Id)] = tran
+	}
+
+	if len(block.Transactions) > 0 {
+		glog.Infof("%v-%v", block.BlockHeader.RawData.Number, len(block.Transactions))
 	}
 
 	for _, tx := range block.Transactions {
@@ -186,10 +184,10 @@ func (b *TrxRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
 			btx.BlockHeight = uint32(block.BlockHeader.RawData.Number)
 			btx.Txid = hex.EncodeToString(tx.Txid)
 			btx.Blocktime = block.BlockHeader.RawData.Timestamp
-			btx.Confirmations = uint32(confirmations)
-			csd, ok := btx.CoinSpecificData.(trxCompleteTransaction)
+			csd, ok := btx.CoinSpecificData.(*trxCompleteTransaction)
 			if ok {
 				csd.BlockNumber = uint32(block.BlockHeader.RawData.Number)
+				csd.Txid = btx.Txid
 			}
 			cblock.Txs = append(cblock.Txs, *btx)
 		}
@@ -212,26 +210,12 @@ func (b *TrxRPC) GetBlockHeader(hash string) (*bchain.BlockHeader, error) {
 		return nil, err
 	}
 
-	confirmations, err := b.computeConfirmations(block.BlockHeader.RawData.Number)
-	if err != nil {
-		return nil, err
-	}
 	return &bchain.BlockHeader{
-		Hash:          hash,
-		Prev:          hex.EncodeToString(block.BlockHeader.RawData.ParentHash),
-		Height:        uint32(block.BlockHeader.RawData.Number),
-		Confirmations: confirmations,
-		Time:          block.BlockHeader.RawData.Timestamp,
+		Hash:   hash,
+		Prev:   hex.EncodeToString(block.BlockHeader.RawData.ParentHash),
+		Height: uint32(block.BlockHeader.RawData.Number),
+		Time:   block.BlockHeader.RawData.Timestamp,
 	}, nil
-}
-
-func (b *TrxRPC) computeConfirmations(n int64) (int, error) {
-	block, err := b.conn.GetNowBlock()
-	if err != nil {
-		return 0, err
-	}
-	// transaction in the best block has 1 confirmation
-	return int(block.BlockHeader.RawData.Number - n + 1), nil
 }
 
 func (b *TrxRPC) GetBlockInfo(hash string) (*bchain.BlockInfo, error) {
@@ -240,18 +224,12 @@ func (b *TrxRPC) GetBlockInfo(hash string) (*bchain.BlockInfo, error) {
 		return nil, err
 	}
 
-	confirmations, err := b.computeConfirmations(block.BlockHeader.RawData.Number)
-	if err != nil {
-		return nil, err
-	}
-
 	var blockInfo bchain.BlockInfo
 	blockInfo.BlockHeader = bchain.BlockHeader{
-		Hash:          hash,
-		Prev:          hex.EncodeToString(block.BlockHeader.RawData.ParentHash),
-		Height:        uint32(block.BlockHeader.RawData.Number),
-		Confirmations: confirmations,
-		Time:          block.BlockHeader.RawData.Timestamp,
+		Hash:   hash,
+		Prev:   hex.EncodeToString(block.BlockHeader.RawData.ParentHash),
+		Height: uint32(block.BlockHeader.RawData.Number),
+		Time:   block.BlockHeader.RawData.Timestamp,
 	}
 
 	blockInfo.Version = common.JSONNumber(strconv.Itoa(int(block.BlockHeader.RawData.Version)))
@@ -286,7 +264,17 @@ func (b *TrxRPC) GetTransaction(txid string) (*bchain.Tx, error) {
 		}
 	}
 
-	return b.Parser.trxtotx(tx, txinfo)
+	txx, err := b.Parser.trxtotx(tx, txinfo)
+	if err != nil {
+		return nil, err
+	}
+
+	csd, ok := txx.CoinSpecificData.(*trxCompleteTransaction)
+	if ok {
+		csd.Txid = txid
+	}
+	txx.Txid = txid
+	return txx, nil
 }
 
 func (b *TrxRPC) GetChainInfo() (*bchain.ChainInfo, error) {
@@ -355,7 +343,7 @@ func (b *TrxRPC) GetComplete(tx *core.Transaction, txinfo *core.TransactionInfo)
 }
 
 func (b *TrxRPC) TronTypeGetTransactionNotify(tx *bchain.Tx) bool {
-	csd, ok := tx.CoinSpecificData.(trxCompleteTransaction)
+	csd, ok := tx.CoinSpecificData.(*trxCompleteTransaction)
 	if ok {
 		contractType := csd.Tx.RawData.Contract[0].Type
 		if contractType == core.Transaction_Contract_TransferContract {
@@ -373,23 +361,26 @@ func (b *TrxRPC) TronTypeGetTransactionNotify(tx *bchain.Tx) bool {
 }
 
 func (b *TrxRPC) GetTransactionSpecific(tx *bchain.Tx) (json.RawMessage, error) {
-	csd, ok := tx.CoinSpecificData.(trxCompleteTransaction)
+	csd, ok := tx.CoinSpecificData.(*trxCompleteTransaction)
 	if !ok {
 		txx, err := b.conn.GetTransactionByID(tx.Txid)
 		if err != nil {
 			return nil, err
 		}
 
-		txinfo, err := b.conn.GetTransactionInfoByID(tx.Txid)
-		if err != nil {
-			return nil, err
+		var txinfo *core.TransactionInfo
+		if len(txx.RawData.Contract) > 0 && txx.RawData.Contract[0].Type == core.Transaction_Contract_TriggerSmartContract {
+			txinfo, err = b.conn.GetTransactionInfoByID(tx.Txid)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		complete, err := b.GetComplete(txx, txinfo)
 		if err != nil {
 			return nil, err
 		}
-		csd = *complete
+		csd = complete
 	}
 	m, err := json.Marshal(&csd)
 	return json.RawMessage(m), err

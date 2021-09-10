@@ -22,6 +22,7 @@ type trxCompleteTransaction struct {
 	TxInfo      *core.TransactionInfo `protobuf:"bytes,2,opt,name=txinfo,proto3" json:"txinfo,omitempty"`
 	Value       *bchain.Trc20Transfer `protobuf:"bytes,3,opt,name=value" json:"value,omitempty"`
 	BlockNumber uint32                `protobuf:"varint,4,opt,name=blockNumber,proto3" json:"blockNumber,omitempty"`
+	Txid        string                `protobuf:"bytes,5,opt,name=txid,proto3" json:"txid,omitempty"`
 }
 
 func (m *trxCompleteTransaction) Reset()         { *m = trxCompleteTransaction{} }
@@ -103,7 +104,7 @@ func (p *TrxParser) PackedTxidLen() int {
 }
 
 func GetHeightFromTx(tx *bchain.Tx) (uint32, error) {
-	csd, ok := tx.CoinSpecificData.(trxCompleteTransaction)
+	csd, ok := tx.CoinSpecificData.(*trxCompleteTransaction)
 	if !ok {
 		return 0, errors.New("Missing CoinSpecificData")
 	}
@@ -117,7 +118,7 @@ type TronTxData struct {
 
 func (p *TrxParser) TronTypeGetTrc20FromTx(tx *bchain.Tx) ([]bchain.Trc20Transfer, error) {
 	var trcs []bchain.Trc20Transfer
-	trx, ok := tx.CoinSpecificData.(trxCompleteTransaction)
+	trx, ok := tx.CoinSpecificData.(*trxCompleteTransaction)
 	if ok {
 		if trx.Value != nil {
 			trcs = append(trcs, *trx.Value)
@@ -161,16 +162,16 @@ func (p *TrxParser) trxtotx(tx *core.Transaction, txinfo *core.TransactionInfo) 
 				},
 			},
 		},
-		CoinSpecificData: *complete,
+		CoinSpecificData: complete,
 	}, nil
 }
 
 func (p *TrxParser) PackTx(tx *bchain.Tx, height uint32, blockTime int64) ([]byte, error) {
-	r, ok := tx.CoinSpecificData.(trxCompleteTransaction)
+	r, ok := tx.CoinSpecificData.(*trxCompleteTransaction)
 	if !ok {
 		return nil, errors.New("Missing CoinSpecificData")
 	}
-	return proto.Marshal(&r)
+	return proto.Marshal(r)
 }
 
 // UnpackTx unpacks transaction from byte array
@@ -184,5 +185,6 @@ func (p *TrxParser) UnpackTx(buf []byte) (*bchain.Tx, uint32, error) {
 	if err != nil {
 		return nil, 0, err
 	}
+	tx.Txid = trx.Txid
 	return tx, 0, err
 }

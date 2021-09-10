@@ -1883,6 +1883,9 @@ func (w *Worker) GetBlock(bid string, page int, txsOnPage int) (*Block, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "GetBestBlock")
 	}
+	if w.chainType == bchain.ChainTronType {
+		bi.Confirmations = int(bestheight - bi.Height + 1)
+	}
 	pg, from, to, page := computePaging(txCount, page, txsOnPage)
 	txs := make([]*Tx, to-from)
 	txi := 0
@@ -1890,6 +1893,11 @@ func (w *Worker) GetBlock(bid string, page int, txsOnPage int) (*Block, error) {
 		txs[txi], err = w.txFromTxid(bi.Txids[i], bestheight, AccountDetailsTxHistoryLight, dbi)
 		if err != nil {
 			return nil, err
+		}
+		if w.chainType == bchain.ChainTronType {
+			txs[txi].Blocktime = bi.Time
+			txs[txi].Blockheight = int(bi.Height)
+			txs[txi].Confirmations = bestheight - bi.Height + 1
 		}
 		txi++
 	}
