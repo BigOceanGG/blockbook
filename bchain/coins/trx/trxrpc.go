@@ -256,12 +256,9 @@ func (b *TrxRPC) GetTransaction(txid string) (*bchain.Tx, error) {
 		return nil, err
 	}
 
-	var txinfo *core.TransactionInfo
-	if len(tx.RawData.Contract) > 0 && tx.RawData.Contract[0].Type == core.Transaction_Contract_TriggerSmartContract {
-		txinfo, err = b.conn.GetTransactionInfoByID(txid)
-		if err != nil {
-			return nil, err
-		}
+	txinfo, err := b.conn.GetTransactionInfoByID(txid)
+	if len(tx.RawData.Contract) > 0 && tx.RawData.Contract[0].Type == core.Transaction_Contract_TriggerSmartContract && err != nil {
+		return nil, err
 	}
 
 	txx, err := b.Parser.trxtotx(tx, txinfo)
@@ -272,6 +269,9 @@ func (b *TrxRPC) GetTransaction(txid string) (*bchain.Tx, error) {
 	csd, ok := txx.CoinSpecificData.(*trxCompleteTransaction)
 	if ok {
 		csd.Txid = txid
+		if txinfo != nil {
+			csd.BlockNumber = uint32(txinfo.BlockNumber)
+		}
 	}
 	txx.Txid = txid
 	return txx, nil
