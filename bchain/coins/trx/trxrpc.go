@@ -367,24 +367,7 @@ func (b *TrxRPC) TronTypeGetTransactionNotify(tx *bchain.Tx) bool {
 func (b *TrxRPC) GetTransactionSpecific(tx *bchain.Tx) (json.RawMessage, error) {
 	csd, ok := tx.CoinSpecificData.(*trxCompleteTransaction)
 	if !ok {
-		txx, err := b.conn.GetTransactionByID(tx.Txid)
-		if err != nil {
-			return nil, err
-		}
-
-		var txinfo *core.TransactionInfo
-		if len(txx.RawData.Contract) > 0 && txx.RawData.Contract[0].Type == core.Transaction_Contract_TriggerSmartContract {
-			txinfo, err = b.conn.GetTransactionInfoByID(tx.Txid)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		complete, err := b.GetComplete(txx, txinfo)
-		if err != nil {
-			return nil, err
-		}
-		csd = complete
+		return nil, errors.New("Missing CoinSpecificData")
 	}
 	m, err := json.Marshal(&csd)
 	return json.RawMessage(m), err

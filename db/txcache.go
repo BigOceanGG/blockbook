@@ -1,6 +1,7 @@
 package db
 
 import (
+	"encoding/json"
 	"github.com/golang/glog"
 	"github.com/juju/errors"
 	"github.com/trezor/blockbook/bchain"
@@ -50,9 +51,11 @@ func (c *TxCache) GetTransaction(txid string) (*bchain.Tx, int, error) {
 			_, bestheight, _ := c.is.GetSyncState()
 			tx.Confirmations = bestheight - h + 1
 			c.metrics.TxCacheEfficiency.With(common.Labels{"status": "hit"}).Inc()
+			glog.Info("GetTransaction by cache : ", txid)
 			return tx, int(h), nil
 		}
 	}
+	glog.Info("GetTransaction by chain : ", txid)
 	tx, err = c.chain.GetTransaction(txid)
 	if err != nil {
 		return nil, 0, err
@@ -109,4 +112,25 @@ func (c *TxCache) GetTransaction(txid string) (*bchain.Tx, int, error) {
 		return tx, -1, nil
 	}
 	return tx, int(h), nil
+}
+
+func (c *TxCache) GetTransactionSpecific(txid string) (json.RawMessage, error) {
+	var tx *bchain.Tx
+	var err error
+	if c.enabled {
+		tx, _, err = c.db.GetTx(txid)
+		if err != nil {
+			return nil, err
+		}
+		if tx != nil {
+			glog.Info("GetTransactionSpecific by cache : ", txid)
+			return c.chain.GetTransactionSpecific(tx)
+		}
+	}
+	glog.Info("GetTransactionSpecific by chain : ", txid)
+	tx, err = c.chain.GetTransaction(txid)
+	if err != nil {
+		return nil, err
+	}
+	return c.chain.GetTransactionSpecific(tx)
 }
