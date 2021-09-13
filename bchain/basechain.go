@@ -74,3 +74,7 @@ func (b *BaseChain) TronTypeGetTrc20ContractBalance(addrDesc, contractDesc Addre
 func (b *BaseChain) TronTypeGetTransactionNotify(tx *Tx) bool {
 	return false
 }
+
+func (b *BaseChain) Reconnect(url string) error {
+	return errors.New("Not supported")
+}

@@ -341,6 +341,11 @@ func (c *blockChainWithMetrics) TronTypeGetTransactionNotify(tx *bchain.Tx) bool
 	return c.b.TronTypeGetTransactionNotify(tx)
 }
 
+func (c *blockChainWithMetrics) Reconnect(url string) error {
+	defer func(s time.Time) { c.observeRPCLatency("Reconnect", s, nil) }(time.Now())
+	return c.b.Reconnect(url)
+}
+
 type mempoolWithMetrics struct {
 	mempool bchain.Mempool
 	m       *common.Metrics

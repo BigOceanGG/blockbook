@@ -207,20 +207,14 @@ func (w *SyncWorker) handleFork(localBestHeight uint32, localBestHash string, on
 	return w.resyncIndex(onNewBlock, initialSync)
 }
 
-func (w *SyncWorker) notify(hash string, height uint32) {
+func (w *SyncWorker) notify(height uint32, txs []bchain.Tx) {
 	mempool, err := w.chain.CreateMempool(w.chain)
 	if err != nil {
 		glog.Error(err)
 		return
 	}
 
-	block, err := w.chain.GetBlock(hash, height)
-	if err != nil {
-		glog.Error(err)
-		return
-	}
-
-	for _, tx := range block.Txs {
+	for _, tx := range txs {
 		chainType := w.chain.GetChainParser().GetChainType()
 		if chainType == bchain.ChainEthereumType {
 			mempool.(*bchain.MempoolEthereumType).Notify(&tx, tx.Txid, height)
@@ -255,7 +249,7 @@ func (w *SyncWorker) connectBlocks(onNewBlock bchain.OnNewBlockFunc, initialSync
 		if onNewBlock != nil {
 			onNewBlock(res.block.Hash, res.block.Height)
 		}
-		w.notify(res.block.Hash, res.block.Height)
+		w.notify(res.block.Height, res.block.Txs)
 		w.metrics.BlockbookBestHeight.Set(float64(res.block.Height))
 		if res.block.Height > 0 && res.block.Height%1000 == 0 {
 			glog.Info("connected block ", res.block.Height, " ", res.block.Hash)

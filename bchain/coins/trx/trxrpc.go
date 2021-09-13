@@ -64,7 +64,7 @@ func NewTrxRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)
 		return nil, errors.Annotatef(err, "Invalid configuration file")
 	}
 
-	conn := client.NewGrpcClientWithTimeout(c.RPCURL, 20*time.Second)
+	conn := client.NewGrpcClientWithTimeout(c.RPCURL, 200*time.Second)
 	if err := conn.Start([]grpc.DialOption{grpc.WithInsecure()}...); err != nil {
 		return nil, err
 	}
@@ -105,6 +105,10 @@ func (b *TrxRPC) InitializeMempool(addrDescForOutpoint bchain.AddrDescForOutpoin
 		b.mq = mq
 	}
 	return nil
+}
+
+func (b *TrxRPC) Reconnect(url string) error {
+	return b.conn.Reconnect(url)
 }
 
 // EstimateFee returns fee estimation.

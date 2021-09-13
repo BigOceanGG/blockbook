@@ -301,6 +301,8 @@ type BlockChain interface {
 	TronTypeGetTrc20ContractInfo(contractDesc AddressDescriptor) (*Trc20Contract, error)
 	TronTypeGetTrc20ContractBalance(addrDesc, contractDesc AddressDescriptor) (*big.Int, error)
 	TronTypeGetTransactionNotify(tx *Tx) bool
+
+	Reconnect(url string) error
 }
 
 // BlockChainParser defines common interface to parsing and conversions of block chain data
