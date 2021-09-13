@@ -115,6 +115,8 @@ func (d *RocksDB) processAddressesAndContractsTronType(block *bchain.Block, addr
 			continue
 		}
 
+		d.PutTx(&tx, block.Height, block.Time)
+
 		blockTx := &blockTxs[txi]
 		blockTx.btxID = btxID
 		var from, to bchain.AddressDescriptor

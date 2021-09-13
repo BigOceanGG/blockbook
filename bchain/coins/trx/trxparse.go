@@ -185,6 +185,12 @@ func (p *TrxParser) UnpackTx(buf []byte) (*bchain.Tx, uint32, error) {
 	if err != nil {
 		return nil, 0, err
 	}
+	txCom, ok := tx.CoinSpecificData.(*trxCompleteTransaction)
+	if ok {
+		txCom.BlockNumber = trx.BlockNumber
+		txCom.Txid = trx.Txid
+	}
 	tx.Txid = trx.Txid
-	return tx, 0, err
+	tx.BlockHeight = trx.BlockNumber
+	return tx, tx.BlockHeight, err
 }
