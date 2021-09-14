@@ -207,7 +207,7 @@ func mainWithExitCode() int {
 		return exitCodeOK
 	}
 
-	if internalState.DbState != common.DbStateClosed && chain.GetChainParser().GetChainType() != bchain.ChainTronType {
+	if internalState.DbState != common.DbStateClosed {
 		if internalState.DbState == common.DbStateInconsistent {
 			glog.Error("internalState: database is in inconsistent state and cannot be used")
 			return exitCodeFatal
