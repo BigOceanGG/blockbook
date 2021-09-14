@@ -1,0 +1,20 @@
+{
+    "mempoolTxTimeoutHours": 48,
+    "queryBackendOnMempoolResync": false,
+    "coin_name": "Ethereum",
+    "coin_shortcut": "ETH",
+    "coin_label": "Ethereum",
+    "rpc_url": "wss://mainnet.infura.io/ws/v3/1089aa759ab74b4898a740881d543d33",
+    "grpc_url": "",
+    "rpc_user": "",
+    "rpc_pass": "",
+    "rpc_timeout": 25,
+    "parse": true,
+    "message_queue_binding": "",
+    "subversion": "",
+    "address_format": "",
+
+    "mempool_workers": 8,
+    "mempool_sub_workers": 2,
+    "block_addresses_to_keep": 300
+}

@@ -1,0 +1,20 @@
+{
+    "coin_name": "Bcash",
+    "coin_shortcut": "BCH",
+    "coin_label": "Bitcoin Cash",
+    "rpc_url": "http://127.0.0.1:9332",
+    "grpc_url": "",
+    "rpc_user": "rpc",
+    "rpc_pass": "rpc",
+    "rpc_timeout": 25,
+    "parse": true,
+    "message_queue_binding": "tcp://127.0.0.1:38331",
+    "subversion": "/Bitcoin ABC Cash Node:22.1.0/",
+    "address_format": "cashaddr",
+    "xpub_magic": 76067358,
+    "slip44": 145,
+
+    "mempool_workers": 8,
+    "mempool_sub_workers": 2,
+    "block_addresses_to_keep": 300
+}
