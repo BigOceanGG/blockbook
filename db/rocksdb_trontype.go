@@ -100,8 +100,8 @@ func (d *RocksDB) addToAddressesAndContractsTronType(addrDesc bchain.AddressDesc
 }
 
 func (d *RocksDB) processAddressesAndContractsTronType(block *bchain.Block, addresses addressesMap, addressContracts map[string]*AddrContracts) ([]tronBlockTx, error) {
-	blockTxs := make([]tronBlockTx, len(block.Txs))
-	for txi, tx := range block.Txs {
+	var blockTxs []tronBlockTx
+	for _, tx := range block.Txs {
 		btxID, err := d.chainParser.PackTxid(tx.Txid)
 		if err != nil {
 			return nil, err
@@ -117,7 +117,7 @@ func (d *RocksDB) processAddressesAndContractsTronType(block *bchain.Block, addr
 
 		d.PutTx(&tx, block.Height, block.Time)
 
-		blockTx := &blockTxs[txi]
+		var blockTx tronBlockTx
 		blockTx.btxID = btxID
 		var from, to bchain.AddressDescriptor
 		// there is only one output address in EthereumType transaction, store it in format txid 0
@@ -192,6 +192,7 @@ func (d *RocksDB) processAddressesAndContractsTronType(block *bchain.Block, addr
 			}
 		}
 		blockTx.contracts = blockTx.contracts[:j]
+		blockTxs = append(blockTxs, blockTx)
 	}
 
 	return blockTxs, nil

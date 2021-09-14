@@ -9,7 +9,6 @@ import (
 	"math/big"
 )
 
-const TronTypeAddressHexLen = 42
 const TronTypeAddressDescriptorLen = 21
 
 type TrxParser struct {
