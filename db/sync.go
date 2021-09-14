@@ -354,13 +354,14 @@ func (w *SyncWorker) ConnectBlocksParallel(lower, higher uint32) error {
 				if err != nil {
 					// signal came while looping in the error loop
 					if hchClosed.Load() == true {
-						glog.Error("getBlockWorker ", i, " connect block error ", err, ". Exiting...")
+						glog.Error("getBlockWorker ", i, " connect block error ", err, ". Exiting...", hh.height)
 						return
 					}
-					glog.Error("getBlockWorker ", i, " connect block error ", err, ". Retrying...")
+					glog.Error("getBlockWorker ", i, " connect block error ", err, ". Retrying...", hh.height)
 					w.metrics.IndexResyncErrors.With(common.Labels{"error": "failure"}).Inc()
 					time.Sleep(time.Millisecond * 500)
 				} else {
+					glog.Info("ConnectBlocksParallel ", i, hh.height)
 					break
 				}
 			}
@@ -474,6 +475,8 @@ func (w *SyncWorker) DisconnectBlocks(lower uint32, higher uint32, hashes []stri
 		return w.db.DisconnectBlockRangeBitcoinType(lower, higher)
 	} else if ct == bchain.ChainEthereumType {
 		return w.db.DisconnectBlockRangeEthereumType(lower, higher)
+	} else if ct == bchain.ChainTronType {
+		return w.db.DisconnectBlockRangeTronType(lower, higher)
 	}
 	return errors.New("Unknown chain type")
 }

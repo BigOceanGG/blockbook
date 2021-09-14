@@ -502,6 +502,7 @@ func (d *RocksDB) ConnectBlock(block *bchain.Block) error {
 		return err
 	}
 	d.is.AppendBlockTime(uint32(block.Time))
+	glog.Info("sync finish ", block.Height)
 	return nil
 }
 
