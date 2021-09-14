@@ -29,6 +29,7 @@ type Configuration struct {
 	CoinName             string `json:"coin_name"`
 	CoinShortcut         string `json:"coin_shortcut"`
 	RPCURL               string `json:"rpc_url"`
+	GRPCURL              string `json:"grpc_url"`
 	RPCTimeout           int    `json:"rpc_timeout"`
 	MessageQueueBinding  string `json:"message_queue_binding"`
 	MempoolWorkers       int    `json:"mempool_workers"`
@@ -64,7 +65,7 @@ func NewTrxRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)
 		return nil, errors.Annotatef(err, "Invalid configuration file")
 	}
 
-	conn := client.NewGrpcClientWithTimeout(c.RPCURL, 200*time.Second)
+	conn := client.NewGrpcClientWithTimeout(c.GRPCURL, 200*time.Second)
 	if err := conn.Start([]grpc.DialOption{grpc.WithInsecure()}...); err != nil {
 		return nil, err
 	}
@@ -400,7 +401,7 @@ func (b *TrxRPC) SendRawTransaction(hex string) (string, error) {
 	req["transaction"] = hex
 
 	var res TrxTxResult
-	err := b.PostCall(client, "https://api.trongrid.io/wallet/broadcasthex", req, &res)
+	err := b.PostCall(client, b.ChainConfig.RPCURL+"/wallet/broadcasthex", req, &res)
 	if err != nil {
 		return res.Txid, err
 	}
