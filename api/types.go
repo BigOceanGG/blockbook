@@ -267,7 +267,7 @@ type Address struct {
 	UsedTokens            int                   `json:"usedTokens,omitempty"`
 	Tokens                []Token               `json:"tokens,omitempty"`
 	Erc20Contract         *bchain.Erc20Contract `json:"erc20Contract,omitempty"`
-	Trc20Contract         *bchain.Trc20Contract `json:"erc20Contract,omitempty"`
+	Trc20Contract         *bchain.Trc20Contract `json:"trc20Contract,omitempty"`
 	// helpers for explorer
 	Filter        string              `json:"-"`
 	XPubAddresses map[string]struct{} `json:"-"`
