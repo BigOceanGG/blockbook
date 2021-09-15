@@ -362,7 +362,7 @@ func (w *SyncWorker) ConnectBlocksParallel(lower, higher uint32) error {
 					w.metrics.IndexResyncErrors.With(common.Labels{"error": "failure"}).Inc()
 					time.Sleep(time.Millisecond * 500)
 				} else {
-					glog.Info("ConnectBlocksParallel ", i, hh.height)
+					glog.Info("start BlocksParallel-", i, hh.height)
 					break
 				}
 			}
