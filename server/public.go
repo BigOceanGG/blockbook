@@ -297,7 +297,9 @@ func (s *PublicServer) jsonHandler(handler func(r *http.Request, apiVersion int)
 			s.metrics.ExplorerPendingRequests.With((common.Labels{"method": handlerName})).Dec()
 		}()
 		s.metrics.ExplorerPendingRequests.With((common.Labels{"method": handlerName})).Inc()
+		start := time.Now()
 		data, err = handler(r, apiVersion)
+		glog.Info(r.RequestURI, ", ", time.Since(start))
 		if err != nil || data == nil {
 			if apiErr, ok := err.(*api.APIError); ok {
 				if apiErr.Public {

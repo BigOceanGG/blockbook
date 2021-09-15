@@ -99,7 +99,7 @@ func (w *Worker) setSpendingTxToVout(vout *Vout, txid string, height uint32) err
 
 // GetSpendingTxid returns transaction id of transaction that spent given output
 func (w *Worker) GetSpendingTxid(txid string, n int) (string, error) {
-	start := time.Now()
+	//start := time.Now()
 	tx, err := w.GetTransaction(txid, false, false)
 	if err != nil {
 		return "", err
@@ -111,7 +111,7 @@ func (w *Worker) GetSpendingTxid(txid string, n int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	glog.Info("GetSpendingTxid ", txid, " ", n, ", ", time.Since(start))
+	//glog.Info("GetSpendingTxid ", txid, " ", n, ", ", time.Since(start))
 	return tx.Vout[n].SpentTxID, nil
 }
 
@@ -1014,7 +1014,7 @@ func (w *Worker) getAddrDescAndNormalizeAddress(address string) (bchain.AddressD
 
 // GetAddress computes address value and gets transactions for given address
 func (w *Worker) GetAddress(address string, page int, txsOnPage int, option AccountDetails, filter *AddressFilter) (*Address, error) {
-	start := time.Now()
+	//start := time.Now()
 	page--
 	if page < 0 {
 		page = 0
@@ -1157,7 +1157,7 @@ func (w *Worker) GetAddress(address string, page int, txsOnPage int, option Acco
 		Trc20Contract:         trc20c,
 		Nonce:                 nonce,
 	}
-	glog.Info("GetAddress ", address, ", ", time.Since(start))
+	//glog.Info("GetAddress ", address, ", ", time.Since(start))
 	return r, nil
 }
 
@@ -1381,7 +1381,7 @@ func (w *Worker) setFiatRateToBalanceHistories(histories BalanceHistories, curre
 func (w *Worker) GetBalanceHistory(address string, fromTimestamp, toTimestamp int64, currencies []string, groupBy uint32) (BalanceHistories, error) {
 	currencies = removeEmpty(currencies)
 	bhs := make(BalanceHistories, 0)
-	start := time.Now()
+	//start := time.Now()
 	addrDesc, _, err := w.getAddrDescAndNormalizeAddress(address)
 	if err != nil {
 		return nil, err
@@ -1409,7 +1409,7 @@ func (w *Worker) GetBalanceHistory(address string, fromTimestamp, toTimestamp in
 	if err != nil {
 		return nil, err
 	}
-	glog.Info("GetBalanceHistory ", address, ", blocks ", fromHeight, "-", toHeight, ", count ", len(bha), ", ", time.Since(start))
+	//glog.Info("GetBalanceHistory ", address, ", blocks ", fromHeight, "-", toHeight, ", count ", len(bha), ", ", time.Since(start))
 	return bha, nil
 }
 
@@ -1548,7 +1548,7 @@ func (w *Worker) GetAddressUtxo(address string, onlyConfirmed bool) (Utxos, erro
 	if w.chainType != bchain.ChainBitcoinType {
 		return nil, NewAPIError("Not supported", true)
 	}
-	start := time.Now()
+	//start := time.Now()
 	addrDesc, err := w.chainParser.GetAddrDescFromAddress(address)
 	if err != nil {
 		return nil, NewAPIError(fmt.Sprintf("Invalid address '%v', %v", address, err), true)
@@ -1557,13 +1557,13 @@ func (w *Worker) GetAddressUtxo(address string, onlyConfirmed bool) (Utxos, erro
 	if err != nil {
 		return nil, err
 	}
-	glog.Info("GetAddressUtxo ", address, ", ", len(r), " utxos, ", time.Since(start))
+	//glog.Info("GetAddressUtxo ", address, ", ", len(r), " utxos, ", time.Since(start))
 	return r, nil
 }
 
 // GetBlocks returns BlockInfo for blocks on given page
 func (w *Worker) GetBlocks(page int, blocksOnPage int) (*Blocks, error) {
-	start := time.Now()
+	//start := time.Now()
 	page--
 	if page < 0 {
 		page = 0
@@ -1587,7 +1587,7 @@ func (w *Worker) GetBlocks(page int, blocksOnPage int) (*Blocks, error) {
 		}
 		r.Blocks[i-from] = *bi
 	}
-	glog.Info("GetBlocks page ", page, ", ", time.Since(start))
+	//glog.Info("GetBlocks page ", page, ", ", time.Since(start))
 	return r, nil
 }
 
@@ -1762,7 +1762,7 @@ func (w *Worker) GetFeeStats(bid string) (*FeeStats, error) {
 		Size  int `json:"size,omitempty"`
 	}
 
-	start := time.Now()
+	//start := time.Now()
 	bi, err := w.getBlockInfoFromBlockID(bid)
 	if err != nil {
 		if err == bchain.ErrBlockNotFound {
@@ -1849,7 +1849,7 @@ func (w *Worker) GetFeeStats(bid string) (*FeeStats, error) {
 		}
 	}
 
-	glog.Info("GetFeeStats ", bid, " (", len(feesPerKb), " txs), ", time.Since(start))
+	//glog.Info("GetFeeStats ", bid, " (", len(feesPerKb), " txs), ", time.Since(start))
 
 	return &FeeStats{
 		TxCount:         len(feesPerKb),
@@ -1861,7 +1861,7 @@ func (w *Worker) GetFeeStats(bid string) (*FeeStats, error) {
 
 // GetBlock returns paged data about block
 func (w *Worker) GetBlock(bid string, page int, txsOnPage int) (*Block, error) {
-	start := time.Now()
+	//start := time.Now()
 	page--
 	if page < 0 {
 		page = 0
@@ -1909,7 +1909,7 @@ func (w *Worker) GetBlock(bid string, page int, txsOnPage int) (*Block, error) {
 	}
 	txs = txs[:txi]
 	bi.Txids = nil
-	glog.Info("GetBlock ", bid, ", page ", page, ", ", time.Since(start))
+	//glog.Info("GetBlock ", bid, ", page ", page, ", ", time.Since(start))
 	return &Block{
 		Paging: pg,
 		BlockInfo: BlockInfo{
@@ -1994,7 +1994,7 @@ func (w *Worker) ComputeFeeStats(blockFrom, blockTo int, stopCompute chan os.Sig
 
 // GetSystemInfo returns information about system
 func (w *Worker) GetSystemInfo(internal bool) (*SystemInfo, error) {
-	start := time.Now()
+	//start := time.Now()
 	vi := common.GetVersionInfo()
 	inSync, bestHeight, lastBlockTime := w.is.GetSyncState()
 	inSyncMempool, lastMempoolTime, mempoolSize := w.is.GetMempoolSyncState()
@@ -2050,7 +2050,7 @@ func (w *Worker) GetSystemInfo(internal bool) (*SystemInfo, error) {
 		Consensus:       ci.Consensus,
 	}
 	w.is.SetBackendInfo(backendInfo)
-	glog.Info("GetSystemInfo, ", time.Since(start))
+	//glog.Info("GetSystemInfo, ", time.Since(start))
 	return &SystemInfo{blockbookInfo, backendInfo}, nil
 }
 
