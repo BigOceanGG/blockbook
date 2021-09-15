@@ -350,19 +350,21 @@ func (w *SyncWorker) ConnectBlocksParallel(lower, higher uint32) error {
 		var block *bchain.Block
 	GetBlockLoop:
 		for hh := range hch {
+			attempts := 0
 			for {
+				attempts++
 				block, err = w.chain.GetBlock(hh.hash, hh.height)
 				if err != nil {
 					// signal came while looping in the error loop
 					if hchClosed.Load() == true {
-						glog.Error("getBlockWorker ", i, " connect block error ", err, ". Exiting...", hh.height)
+						glog.Error("getBlockWorker ", i, " connect block error ", err, ". Exiting...", hh.height, "  ", attempts)
 						return
 					}
-					glog.Error("getBlockWorker ", i, " connect block error ", err, ". Retrying...", hh.height)
+					glog.Error("getBlockWorker ", i, " connect block error ", err, ". Retrying...", hh.height, "  ", attempts)
 					w.metrics.IndexResyncErrors.With(common.Labels{"error": "failure"}).Inc()
 					time.Sleep(time.Millisecond * 500)
 				} else {
-					glog.Info("start BlocksParallel-", i, hh.height)
+					glog.Info("start BlocksParallel-", i, hh.height, "  ", attempts)
 					break
 				}
 			}
