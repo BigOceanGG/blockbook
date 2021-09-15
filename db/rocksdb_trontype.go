@@ -407,7 +407,7 @@ func (d *RocksDB) DisconnectBlockRangeTronType(lower uint32, higher uint32) erro
 		wb.DeleteCF(d.cfh[cfBlockTxs], key)
 		wb.DeleteCF(d.cfh[cfHeight], key)
 	}
-	d.storeAddressContracts(wb, contracts)
+	d.storeTronAddressContracts(wb, contracts)
 	err := d.db.Write(d.wo, wb)
 	if err == nil {
 		d.is.RemoveLastBlockTimes(int(higher-lower) + 1)

@@ -256,12 +256,52 @@ func (b *BulkConnect) storeAddressContracts(wb *gorocksdb.WriteBatch, all bool) 
 	return len(ac), nil
 }
 
+func (b *BulkConnect) storeTronAddressContracts(wb *gorocksdb.WriteBatch, all bool) (int, error) {
+	var ac map[string]*AddrContracts
+	if all {
+		ac = b.addressContracts
+		b.addressContracts = make(map[string]*AddrContracts)
+	} else {
+		ac = make(map[string]*AddrContracts)
+		// store some random address contracts
+		for k, a := range b.addressContracts {
+			ac[k] = a
+			delete(b.addressContracts, k)
+			if len(ac) >= partialStoreAddrContracts {
+				break
+			}
+		}
+	}
+	if err := b.d.storeTronAddressContracts(wb, ac); err != nil {
+		return 0, err
+	}
+	return len(ac), nil
+}
+
 func (b *BulkConnect) parallelStoreAddressContracts(c chan error, all bool) {
 	defer close(c)
 	start := time.Now()
 	wb := gorocksdb.NewWriteBatch()
 	defer wb.Destroy()
 	count, err := b.storeAddressContracts(wb, all)
+	if err != nil {
+		c <- err
+		return
+	}
+	if err := b.d.db.Write(b.d.wo, wb); err != nil {
+		c <- err
+		return
+	}
+	glog.Info("rocksdb: height ", b.height, ", stored ", count, " addressContracts, ", len(b.addressContracts), " remaining, done in ", time.Since(start))
+	c <- nil
+}
+
+func (b *BulkConnect) parallelStoreTronAddressContracts(c chan error, all bool) {
+	defer close(c)
+	start := time.Now()
+	wb := gorocksdb.NewWriteBatch()
+	defer wb.Destroy()
+	count, err := b.storeTronAddressContracts(wb, all)
 	if err != nil {
 		c <- err
 		return
@@ -414,7 +454,7 @@ func (b *BulkConnect) Close() error {
 		go b.parallelStoreAddressContracts(storeAddressContractsChan, true)
 	} else if b.chainType == bchain.ChainTronType {
 		storeAddressContractsChan = make(chan error)
-		go b.parallelStoreAddressContracts(storeAddressContractsChan, true)
+		go b.parallelStoreTronAddressContracts(storeAddressContractsChan, true)
 	}
 	wb := gorocksdb.NewWriteBatch()
 	defer wb.Destroy()
