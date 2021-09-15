@@ -153,7 +153,7 @@ type Token struct {
 	Transfers        int       `json:"transfers"`
 	Symbol           string    `json:"symbol,omitempty"`
 	Decimals         int       `json:"decimals,omitempty"`
-	BalanceSat       *Amount   `json:"balance,omitempty"`
+	BalanceSat       *Amount   `json:"balance"`
 	TotalReceivedSat *Amount   `json:"totalReceived,omitempty"`
 	TotalSentSat     *Amount   `json:"totalSent,omitempty"`
 	ContractIndex    string    `json:"-"`

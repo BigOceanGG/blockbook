@@ -233,6 +233,7 @@ type Trc20Transfer struct {
 	From     string  `protobuf:"bytes,2,opt,name=from" json:"from"`
 	To       string  `protobuf:"bytes,3,opt,name=to" json:"to"`
 	Amount   big.Int `protobuf:"bytes,4,opt,name=amount" json:"amount"`
+	Address  string  `protobuf:"bytes,5,opt,name=address" json:"address"`
 }
 
 // MempoolTxidEntry contains mempool txid with first seen time

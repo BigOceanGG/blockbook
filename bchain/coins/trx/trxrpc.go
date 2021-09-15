@@ -329,6 +329,7 @@ func (b *TrxRPC) GetComplete(tx *core.Transaction, txinfo *core.TransactionInfo)
 		if v, ok := data["Amount"]; ok {
 			value.Amount = *big.NewInt(v.(int64))
 		}
+		value.Address = value.To
 		res.Value = &value
 	} else if contractType == core.Transaction_Contract_TriggerSmartContract {
 		if len(txinfo.Log) > 0 && len(txinfo.Log[0].Topics) > 0 && hex.EncodeToString(txinfo.Log[0].Topics[0]) == trc20TransferEventSignature {
@@ -340,6 +341,7 @@ func (b *TrxRPC) GetComplete(tx *core.Transaction, txinfo *core.TransactionInfo)
 			if v, ok := data["ContractAddress"]; ok && len(v.([]uint8)) > 0 {
 				value.Contract = hex.EncodeToString(v.([]byte))
 			}
+			value.Address = value.Contract
 			res.Value = &value
 		}
 	}

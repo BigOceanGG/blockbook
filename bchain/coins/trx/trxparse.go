@@ -133,11 +133,11 @@ func (p *TrxParser) trxtotx(tx *core.Transaction, txinfo *core.TransactionInfo) 
 		return nil, err
 	}
 
-	var from, to string
+	var from, address string
 	var amount big.Int
 	if complete.Value != nil {
 		from = complete.Value.From
-		to = complete.Value.To
+		address = complete.Value.Address
 		amount = complete.Value.Amount
 	}
 	return &bchain.Tx{
@@ -157,7 +157,7 @@ func (p *TrxParser) trxtotx(tx *core.Transaction, txinfo *core.TransactionInfo) 
 				ValueSat: amount,
 				ScriptPubKey: bchain.ScriptPubKey{
 					// Hex
-					Addresses: []string{to},
+					Addresses: []string{address},
 				},
 			},
 		},
