@@ -1323,6 +1323,28 @@ func (w *Worker) balanceHistoryForTxid(addrDesc bchain.AddressDescriptor, txid s
 					countSentToSelf = true
 				}
 			}
+
+			trc20, err := w.chainParser.TronTypeGetTrc20FromTx(bchainTx)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, t := range trc20 {
+				if t.Contract == "" {
+					continue
+				}
+				txAddrDesc, err := w.chainParser.GetAddrDescFromAddress(t.To)
+				if err != nil {
+					return nil, err
+				}
+				if bytes.Equal(addrDesc, txAddrDesc) {
+					(*big.Int)(bh.ReceivedSat).Add((*big.Int)(bh.ReceivedSat), &value)
+				}
+				if _, found := selfAddrDesc[string(txAddrDesc)]; found {
+					countSentToSelf = true
+				}
+
+			}
 		}
 
 		for i := range bchainTx.Vin {
