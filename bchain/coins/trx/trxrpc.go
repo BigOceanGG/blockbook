@@ -157,7 +157,7 @@ func (b *TrxRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
 		Hash:   hex.EncodeToString(block.Blockid),
 		Prev:   hex.EncodeToString(block.BlockHeader.RawData.ParentHash),
 		Height: uint32(block.BlockHeader.RawData.Number),
-		Time:   block.BlockHeader.RawData.Timestamp,
+		Time:   block.BlockHeader.RawData.Timestamp / 1000,
 	}
 
 	trans, err := b.conn.GetBlockInfoByNum(block.BlockHeader.RawData.Number)
