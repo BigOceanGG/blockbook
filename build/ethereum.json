@@ -4,7 +4,7 @@
     "coin_name": "Ethereum",
     "coin_shortcut": "ETH",
     "coin_label": "Ethereum",
-    "rpc_url": "wss://mainnet.infura.io/ws/v3/1089aa759ab74b4898a740881d543d33",
+    "rpc_url": "https://mainnet.eth.cloud.ava.do",
     "grpc_url": "",
     "rpc_user": "",
     "rpc_pass": "",
