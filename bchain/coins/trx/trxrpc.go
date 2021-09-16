@@ -332,7 +332,7 @@ func (b *TrxRPC) GetComplete(tx *core.Transaction, txinfo *core.TransactionInfo)
 		value.Address = value.To
 		res.Value = &value
 	} else if contractType == core.Transaction_Contract_TriggerSmartContract {
-		if len(txinfo.Log) > 0 && len(txinfo.Log[0].Topics) > 0 && hex.EncodeToString(txinfo.Log[0].Topics[0]) == trc20TransferEventSignature {
+		if len(txinfo.Log) > 0 && len(txinfo.Log[0].Topics) > 0 && hex.EncodeToString(txinfo.Log[0].Topics[0]) == trc20TransferEventSignature && len(txinfo.Log[0].Topics) > 2 {
 			value.From = "41" + hex.EncodeToString(txinfo.Log[0].Topics[1][12:])
 			value.To = "41" + hex.EncodeToString(txinfo.Log[0].Topics[2][12:])
 			if amount, err := strconv.ParseInt(hex.EncodeToString(txinfo.Log[0].Data), 16, 64); err == nil {
