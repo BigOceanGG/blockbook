@@ -83,6 +83,7 @@ func (d *RocksDB) addToAddressesAndContractsTronType(addrDesc bchain.AddressDesc
 				ac.Contracts = append(ac.Contracts, AddrContract{Contract: contract})
 			}
 			if index < 0 {
+				ac.NonContractTxs--
 				index = ^int32(i + 1)
 			} else {
 				index = int32(i + 1)
