@@ -135,6 +135,7 @@ func (d *RocksDB) addToAddressesAndContractsEthereumType(addrDesc bchain.Address
 			// index 0 is for ETH transfers, contract indexes start with 1
 			if index < 0 {
 				index = ^int32(i + 1)
+				ac.NonContractTxs--
 			} else {
 				index = int32(i + 1)
 			}
