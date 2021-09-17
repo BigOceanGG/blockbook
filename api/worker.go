@@ -1338,7 +1338,7 @@ func (w *Worker) balanceHistoryForTxid(addrDesc bchain.AddressDescriptor, txid s
 					return nil, err
 				}
 				if bytes.Equal(addrDesc, txAddrDesc) {
-					(*big.Int)(bh.ReceivedSat).Add((*big.Int)(bh.ReceivedSat), &value)
+					(*big.Int)(bh.ReceivedSat).Add((*big.Int)(bh.ReceivedSat), &t.Amount)
 				}
 				if _, found := selfAddrDesc[string(txAddrDesc)]; found {
 					countSentToSelf = true
