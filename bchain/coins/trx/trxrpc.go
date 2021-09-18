@@ -140,7 +140,7 @@ func (b *TrxRPC) GetBestBlockHeight() (uint32, error) {
 }
 
 func (b *TrxRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
-	if height <= 0 {
+	if height < 0 {
 		b, err := b.conn.GetBlockByID(hash)
 		if err != nil {
 			return nil, err
