@@ -3,7 +3,7 @@
     "coin_shortcut": "TRX",
     "coin_label": "Trx coin",
     "rpc_url": "https://api.trongrid.io",
-    "grpc_url": "grpc.trongrid.io:50051",
+    "grpc_url": "3.225.171.164:50051",
     "rpc_user": "",
     "rpc_pass": "",
     "rpc_timeout": 25,
