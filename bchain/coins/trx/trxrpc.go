@@ -66,7 +66,7 @@ func NewTrxRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)
 	}
 
 	conn := client.NewGrpcClientWithTimeout(c.GRPCURL, 200*time.Second)
-	conn.SetAPIKey("68523e52-1b00-41bb-8c13-c03726bd7543")
+	//conn.SetAPIKey("68523e52-1b00-41bb-8c13-c03726bd7543")
 	if err := conn.Start([]grpc.DialOption{grpc.WithInsecure()}...); err != nil {
 		return nil, err
 	}
