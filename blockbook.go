@@ -286,10 +286,6 @@ func mainWithExitCode() int {
 		}
 	}
 
-	go func() {
-		http.ListenAndServe("localhost:1234", nil)
-	}()
-
 	if publicServer != nil {
 		// start full public interface
 		callbacksOnNewBlock = append(callbacksOnNewBlock, publicServer.OnNewBlock)
