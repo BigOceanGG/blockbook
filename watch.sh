@@ -7,17 +7,17 @@ while true; do
         NUM=`free | awk '/Mem/ {print $7}'`
         if [ "${NUM}" -lt "1000000" ]; then
             pkill -2 blockbook
-            echo "kill -2 ... ${NUM}"
+            echo "$(date "+%Y-%m-%d %H:%M:%S") kill -2 ... ${NUM}"
             sleep 30
             pkill -9 blockbook
-            echo "kill -9 ... ${NUM}"
+            echo "$(date "+%Y-%m-%d %H:%M:%S") kill -9 ... ${NUM}"
             sleep 5
             bash trx.sh
             bash ethereum.sh
-            echo "start ..."
+            echo "$(date "+%Y-%m-%d %H:%M:%S") start ..."
         else
-            echo "watch ... ${NUM}"
+            echo "$(date "+%Y-%m-%d %H:%M:%S") watch ... ${NUM}"
         fi
-        sleep 60
+        sleep 180
 
 done
