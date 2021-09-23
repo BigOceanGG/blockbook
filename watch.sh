@@ -1,18 +1,23 @@
 #!/bin/sh
 
-PRO_NAME = bitcoin.json
-export LD_LIBRARY_PATH = ./
+export LD_LIBRARY_PATH=./
 
 while true; do
 
-        NUM = `ps aux | grep ${PRO_NAME} | grep -v grep |wc -l`
-        if [ "${NUM}" -lt "1" ]; then
-            echo "${PRO_NAME} was killed"
-            ./blockbook -workers=1 -sync -blockchaincfg=build/bitcoin.json -datadir=/home/admin/coins/bitcoin/dbs -internal=:19000 -public=:19100 -logtostderr > ~/coins/bitcoin/bitcoin.log 2>&1 &
-            sleep 10
+        NUM=`free | awk '/Mem/ {print $7}'`
+        if [ "${NUM}" -lt "1000000" ]; then
+            pkill -2 blockbook
+            echo "kill -2 ... ${NUM}"
+            sleep 30
+            pkill -9 blockbook
+            echo "kill -9 ... ${NUM}"
+            sleep 5
+            bash trx.sh
+            bash ethereum.sh
+            echo "start ..."
         else
-            echo "watch ${PRO_NAME}"
-            sleep 60
+            echo "watch ... ${NUM}"
         fi
+        sleep 60
 
 done
