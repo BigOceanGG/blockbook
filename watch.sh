@@ -5,7 +5,7 @@ export LD_LIBRARY_PATH=./
 while true; do
 
         NUM=`free | awk '/Mem/ {print $7}'`
-        if [ ${NUM} -lt 800000 ]; then
+        if [ ${NUM} -lt 600000 ]; then
             pkill -2 blockbook
             echo "$(date "+%Y-%m-%d %H:%M:%S") pkill -2 ... ${NUM}"
             sleep 60
@@ -18,6 +18,6 @@ while true; do
         else
             echo "$(date "+%Y-%m-%d %H:%M:%S") watch ... ${NUM}"
         fi
-        sleep 180
+        sleep 120
 
 done
