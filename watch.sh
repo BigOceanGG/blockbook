@@ -8,7 +8,7 @@ while true; do
         if [ ${NUM} -lt 800000 ]; then
             pkill -2 blockbook
             echo "$(date "+%Y-%m-%d %H:%M:%S") pkill -2 ... ${NUM}"
-            sleep 30
+            sleep 60
             pkill -9 blockbook
             echo "$(date "+%Y-%m-%d %H:%M:%S") pkill -9 ... ${NUM}"
             sleep 5
