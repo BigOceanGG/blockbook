@@ -1,6 +1,6 @@
 syntax = "proto3";
 	package eth;
-		
+	//option go_package ="../eth";
 	message ProtoCompleteTransaction {
         message TxType {
             uint64 AccountNonce = 1;
