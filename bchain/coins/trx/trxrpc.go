@@ -342,6 +342,9 @@ func (b *TrxRPC) GetComplete(tx *core.Transaction, txinfo *core.TransactionInfo)
 			if v, ok := data["ContractAddress"]; ok && len(v.([]uint8)) > 0 {
 				value.Contract = hex.EncodeToString(v.([]byte))
 			}
+			if len(txinfo.Log[0].Address) > 0 {
+				value.Contract = "41" + hex.EncodeToString(txinfo.Log[0].Address)
+			}
 			value.Address = value.Contract
 			res.Value = &value
 		}
