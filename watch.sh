@@ -12,7 +12,7 @@ while true; do
             pkill -9 blockbook
             echo "$(date "+%Y-%m-%d %H:%M:%S") pkill -9 ... ${NUM}"
             sleep 10
-            bash ethereum.sh
+            bash bitcoin.sh
             echo "$(date "+%Y-%m-%d %H:%M:%S") start ..."
        else
             echo "$(date "+%Y-%m-%d %H:%M:%S") watch ... ${NUM}"
