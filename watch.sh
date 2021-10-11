@@ -5,10 +5,10 @@ export LD_LIBRARY_PATH=./
 while true; do
 
         NUM=`free | awk '/Mem/ {print $7}'`
-        if [ ${NUM} -lt 4000000 ]; then
+        if [ ${NUM} -lt 1000000 ]; then
             PID=`ps aux | grep ethereum.json| grep -v grep|awk '{print $2}'`
             if  [ $PID ]; then
-              echo "ethereum was killed"
+              echo "$(date "+%Y-%m-%d %H:%M:%S") ethereum was killed"
               kill -2 ${PID}
               echo "$(date "+%Y-%m-%d %H:%M:%S") kill -2 ... ${NUM}"
               sleep 120
