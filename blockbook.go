@@ -299,15 +299,12 @@ func mainWithExitCode() int {
 		internalState.SyncMode = true
 		internalState.InitialSync = true
 
-		for {
-			if err := syncWorker.ResyncIndex(nil, true); err != nil {
+		if err := syncWorker.ResyncIndex(nil, true); err != nil {
+			if err != db.ErrOperationInterrupted {
 				glog.Error("resyncIndex ", err)
-				time.Sleep(time.Minute)
-				chain.Reconnect("")
-				continue
-			} else {
-				break
+				return exitCodeFatal
 			}
+			return exitCodeOK
 		}
 		// initialize mempool after the initial sync is complete
 		var addrDescForOutpoint bchain.AddrDescForOutpointFunc
