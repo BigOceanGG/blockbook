@@ -398,7 +398,8 @@ ConnectLoop:
 			break ConnectLoop
 		default:
 			if w.chain.GetChainParser().GetChainType() == bchain.ChainTronType ||
-				w.chain.GetChainParser().GetChainType() == bchain.ChainEthereumType {
+				w.chain.GetChainParser().GetChainType() == bchain.ChainEthereumType ||
+				w.chain.GetChainParser().GetChainType() == bchain.ChainBitcoinType {
 				hch <- hashHeight{"", h}
 			} else {
 				hash, err = w.chain.GetBlockHash(h)
