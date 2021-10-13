@@ -37,13 +37,28 @@ func (d *RocksDB) GetTronAddrDescContracts(addrDesc bchain.AddressDescriptor) (*
 		if len(buf) < trx.TronTypeAddressDescriptorLen {
 			return nil, errors.New("Invalid data stored in cfAddressContracts for AddrDesc " + addrDesc.String())
 		}
-		txs, l := unpackVaruint(buf[trx.TronTypeAddressDescriptorLen:])
 		contract := append(bchain.AddressDescriptor(nil), buf[:trx.TronTypeAddressDescriptorLen]...)
+		txs, l := unpackVaruint(buf[trx.TronTypeAddressDescriptorLen:])
+		buf = buf[l+trx.TronTypeAddressDescriptorLen:]
+		symbolsize, l := unpackVarint(buf)
+		symbol := string(buf[l : l+symbolsize])
+		buf = buf[l+symbolsize:]
+		decimals, l := unpackVarint(buf)
+		buf = buf[l:]
+		namesize, l := unpackVarint(buf)
+		name := string(buf[l : l+namesize])
+		buf = buf[l+namesize:]
+		amountsize, l := unpackVarint(buf)
+		amont := string(buf[l : l+amountsize])
 		c = append(c, AddrContract{
 			Contract: contract,
 			Txs:      txs,
+			Symbol:   symbol,
+			Decimals: decimals,
+			Name:     name,
+			Amount:   amont,
 		})
-		buf = buf[trx.TronTypeAddressDescriptorLen+l:]
+		buf = buf[l+amountsize:]
 	}
 	return &AddrContracts{
 		TotalTxs:       tt,
@@ -80,7 +95,19 @@ func (d *RocksDB) addToAddressesAndContractsTronType(addrDesc bchain.AddressDesc
 			i, found := findContractInAddressContracts(contract, ac.Contracts)
 			if !found {
 				i = len(ac.Contracts)
-				ac.Contracts = append(ac.Contracts, AddrContract{Contract: contract})
+				var c AddrContract
+				c.Contract = contract
+				ci, err := d.chain.TronTypeGetTrc20ContractInfo(contract)
+				if err == nil && ci != nil {
+					c.Name = ci.Name
+					c.Symbol = ci.Symbol
+					c.Decimals = ci.Decimals
+				}
+				ac.Contracts = append(ac.Contracts, c)
+			}
+			amount, err := d.chain.TronTypeGetTrc20ContractBalance(addrDesc, contract)
+			if err == nil {
+				ac.Contracts[i].Amount = amount.String()
 			}
 			if index < 0 {
 				ac.NonContractTxs--
@@ -434,6 +461,21 @@ func (d *RocksDB) storeTronAddressContracts(wb *gorocksdb.WriteBatch, acm map[st
 				buf = append(buf, ac.Contract...)
 				l = packVaruint(ac.Txs, varBuf)
 				buf = append(buf, varBuf[:l]...)
+
+				l = packVarint(len(ac.Symbol), varBuf)
+				buf = append(buf, varBuf[:l]...)
+				buf = append(buf, []byte(ac.Symbol)...)
+
+				l = packVarint(ac.Decimals, varBuf)
+				buf = append(buf, varBuf[:l]...)
+
+				l = packVarint(len(ac.Name), varBuf)
+				buf = append(buf, varBuf[:l]...)
+				buf = append(buf, []byte(ac.Name)...)
+
+				l = packVarint(len(ac.Amount), varBuf)
+				buf = append(buf, varBuf[:l]...)
+				buf = append(buf, []byte(ac.Amount)...)
 			}
 			key, err := hex.DecodeString(addrDesc)
 			if err != nil {

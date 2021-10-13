@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	common2 "github.com/fbsobreira/gotron-sdk/pkg/common"
 	"math"
 	"math/big"
 	"os"
@@ -706,7 +707,22 @@ func (w *Worker) getEthereumToken(index int, addrDesc, contract bchain.AddressDe
 	}, nil
 }
 
-func (w *Worker) getTronToken(index int, addrDesc, contract bchain.AddressDescriptor, details AccountDetails, txs int) (*Token, error) {
+func (w *Worker) getTronToken(index int, addrDesc, contract bchain.AddressDescriptor, details AccountDetails, txs int, c *db.AddrContract) (*Token, error) {
+	if c != nil {
+		n := new(big.Int)
+		if n, ok := n.SetString(c.Amount, 10); ok {
+			return &Token{
+				Type:          TRC20TokenType,
+				BalanceSat:    (*Amount)(n),
+				Contract:      common2.EncodeCheck(contract),
+				Name:          c.Name,
+				Symbol:        c.Symbol,
+				Transfers:     txs,
+				Decimals:      c.Decimals,
+				ContractIndex: strconv.Itoa(index),
+			}, nil
+		}
+	}
 	var b *big.Int
 	validContract := true
 	ci, err := w.chain.TronTypeGetTrc20ContractInfo(contract)
@@ -893,7 +909,7 @@ func (w *Worker) getTronTypeAddressBalances(addrDesc bchain.AddressDescriptor, d
 					// filter only transactions of this contract
 					filter.Vout = i + 1
 				}
-				t, err := w.getTronToken(i+1, addrDesc, c.Contract, details, int(c.Txs))
+				t, err := w.getTronToken(i+1, addrDesc, c.Contract, details, int(c.Txs), &c)
 				if err != nil {
 					return nil, nil, nil, 0, 0, 0, err
 				}
@@ -903,7 +919,7 @@ func (w *Worker) getTronTypeAddressBalances(addrDesc bchain.AddressDescriptor, d
 			// special handling if filter has contract
 			// if the address has no transactions with given contract, check the balance, the address may have some balance even without transactions
 			if len(filterDesc) > 0 && j == 0 && details >= AccountDetailsTokens {
-				t, err := w.getTronToken(0, addrDesc, filterDesc, details, 0)
+				t, err := w.getTronToken(0, addrDesc, filterDesc, details, 0, nil)
 				if err != nil {
 					return nil, nil, nil, 0, 0, 0, err
 				}
@@ -916,6 +932,7 @@ func (w *Worker) getTronTypeAddressBalances(addrDesc bchain.AddressDescriptor, d
 		}
 		ci, err = w.chain.TronTypeGetTrc20ContractInfo(addrDesc)
 		if err != nil {
+			glog.Error(err)
 			return nil, nil, nil, 0, 0, 0, err
 		}
 		if filter.FromHeight == 0 && filter.ToHeight == 0 {
@@ -940,7 +957,7 @@ func (w *Worker) getTronTypeAddressBalances(addrDesc bchain.AddressDescriptor, d
 		}
 		// special handling if filtering for a contract, check the ballance of it
 		if len(filterDesc) > 0 && details >= AccountDetailsTokens {
-			t, err := w.getTronToken(0, addrDesc, filterDesc, details, 0)
+			t, err := w.getTronToken(0, addrDesc, filterDesc, details, 0, nil)
 			if err != nil {
 				return nil, nil, nil, 0, 0, 0, err
 			}

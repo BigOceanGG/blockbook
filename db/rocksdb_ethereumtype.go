@@ -16,6 +16,10 @@ import (
 type AddrContract struct {
 	Contract bchain.AddressDescriptor
 	Txs      uint
+	Symbol   string
+	Decimals int
+	Name     string
+	Amount   string
 }
 
 // AddrContracts contains number of transactions and contracts for an address
