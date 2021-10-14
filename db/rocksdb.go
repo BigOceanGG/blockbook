@@ -441,6 +441,7 @@ const (
 
 // ConnectBlock indexes addresses in the block and stores them in db
 func (d *RocksDB) ConnectBlock(block *bchain.Block) error {
+	start := time.Now()
 	wb := gorocksdb.NewWriteBatch()
 	defer wb.Destroy()
 
@@ -503,7 +504,7 @@ func (d *RocksDB) ConnectBlock(block *bchain.Block) error {
 		return err
 	}
 	d.is.AppendBlockTime(uint32(block.Time))
-	glog.Info("sync finish ", block.Height)
+	glog.Info("sync finish ", block.Height, time.Now().Sub(start))
 	return nil
 }
 
