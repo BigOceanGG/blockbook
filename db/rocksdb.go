@@ -704,6 +704,8 @@ func (d *RocksDB) GetAndResetConnectBlockStats() string {
 func (d *RocksDB) processAddressesBitcoinType(block *bchain.Block, addresses addressesMap, txAddressesMap map[string]*TxAddresses, balances map[string]*AddrBalance) error {
 	blockTxIDs := make([][]byte, len(block.Txs))
 	blockTxAddresses := make([]*TxAddresses, len(block.Txs))
+	start := time.Now()
+	glog.Info("tx ", len(block.Txs))
 	// first process all outputs so that inputs can refer to txs in this block
 	for txi := range block.Txs {
 		tx := &block.Txs[txi]
@@ -761,6 +763,7 @@ func (d *RocksDB) processAddressesBitcoinType(block *bchain.Block, addresses add
 				}
 			}
 		}
+		glog.Infof("**** %v %v", txi, time.Now().Sub(start))
 	}
 	// process inputs
 	for txi := range block.Txs {
@@ -843,6 +846,7 @@ func (d *RocksDB) processAddressesBitcoinType(block *bchain.Block, addresses add
 				balance.SentSat.Add(&balance.SentSat, &spentOutput.ValueSat)
 			}
 		}
+		glog.Infof("#### %v %v", txi, time.Now().Sub(start))
 	}
 	return nil
 }
