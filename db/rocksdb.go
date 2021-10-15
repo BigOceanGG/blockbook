@@ -454,6 +454,7 @@ func (d *RocksDB) ConnectBlock(block *bchain.Block) error {
 	if err := d.writeHeightFromBlock(wb, block, opInsert); err != nil {
 		return err
 	}
+	glog.Info("0000000000000   ", time.Now().Sub(start))
 	addresses := make(addressesMap)
 	if chainType == bchain.ChainBitcoinType {
 		txAddressesMap := make(map[string]*TxAddresses)
@@ -461,15 +462,19 @@ func (d *RocksDB) ConnectBlock(block *bchain.Block) error {
 		if err := d.processAddressesBitcoinType(block, addresses, txAddressesMap, balances); err != nil {
 			return err
 		}
+		glog.Info("1111111111111   ", time.Now().Sub(start))
 		if err := d.storeTxAddresses(wb, txAddressesMap); err != nil {
 			return err
 		}
+		glog.Info("2222222222222   ", time.Now().Sub(start))
 		if err := d.storeBalances(wb, balances); err != nil {
 			return err
 		}
+		glog.Info("333333333333   ", time.Now().Sub(start))
 		if err := d.storeAndCleanupBlockTxs(wb, block); err != nil {
 			return err
 		}
+		glog.Info("44444444444   ", time.Now().Sub(start))
 	} else if chainType == bchain.ChainEthereumType {
 		addressContracts := make(map[string]*AddrContracts)
 		blockTxs, err := d.processAddressesEthereumType(block, addresses, addressContracts)
@@ -500,6 +505,7 @@ func (d *RocksDB) ConnectBlock(block *bchain.Block) error {
 	if err := d.storeAddresses(wb, block.Height, addresses); err != nil {
 		return err
 	}
+	glog.Info("55555555555   ", time.Now().Sub(start))
 	if err := d.db.Write(d.wo, wb); err != nil {
 		return err
 	}
