@@ -454,7 +454,6 @@ func (d *RocksDB) ConnectBlock(block *bchain.Block) error {
 	if err := d.writeHeightFromBlock(wb, block, opInsert); err != nil {
 		return err
 	}
-	glog.Info("0000000000000   ", time.Now().Sub(start))
 	addresses := make(addressesMap)
 	if chainType == bchain.ChainBitcoinType {
 		txAddressesMap := make(map[string]*TxAddresses)
@@ -462,19 +461,15 @@ func (d *RocksDB) ConnectBlock(block *bchain.Block) error {
 		if err := d.processAddressesBitcoinType(block, addresses, txAddressesMap, balances); err != nil {
 			return err
 		}
-		glog.Info("1111111111111   ", time.Now().Sub(start))
 		if err := d.storeTxAddresses(wb, txAddressesMap); err != nil {
 			return err
 		}
-		glog.Info("2222222222222   ", time.Now().Sub(start))
 		if err := d.storeBalances(wb, balances); err != nil {
 			return err
 		}
-		glog.Info("333333333333   ", time.Now().Sub(start))
 		if err := d.storeAndCleanupBlockTxs(wb, block); err != nil {
 			return err
 		}
-		glog.Info("44444444444   ", time.Now().Sub(start))
 	} else if chainType == bchain.ChainEthereumType {
 		addressContracts := make(map[string]*AddrContracts)
 		blockTxs, err := d.processAddressesEthereumType(block, addresses, addressContracts)
@@ -505,7 +500,6 @@ func (d *RocksDB) ConnectBlock(block *bchain.Block) error {
 	if err := d.storeAddresses(wb, block.Height, addresses); err != nil {
 		return err
 	}
-	glog.Info("55555555555   ", time.Now().Sub(start))
 	if err := d.db.Write(d.wo, wb); err != nil {
 		return err
 	}
@@ -704,17 +698,13 @@ func (d *RocksDB) GetAndResetConnectBlockStats() string {
 func (d *RocksDB) processAddressesBitcoinType(block *bchain.Block, addresses addressesMap, txAddressesMap map[string]*TxAddresses, balances map[string]*AddrBalance) error {
 	blockTxIDs := make([][]byte, len(block.Txs))
 	blockTxAddresses := make([]*TxAddresses, len(block.Txs))
-	start := time.Now()
-	glog.Info("tx ", len(block.Txs))
 	// first process all outputs so that inputs can refer to txs in this block
 	for txi := range block.Txs {
 		tx := &block.Txs[txi]
-		glog.Infof("****1 %v %v", txi, time.Now().Sub(start))
 		btxID, err := d.chainParser.PackTxid(tx.Txid)
 		if err != nil {
 			return err
 		}
-		glog.Infof("****2 %v %v", txi, time.Now().Sub(start))
 		blockTxIDs[txi] = btxID
 		ta := TxAddresses{Height: block.Height}
 		ta.Outputs = make([]TxOutput, len(tx.Vout))
@@ -723,7 +713,6 @@ func (d *RocksDB) processAddressesBitcoinType(block *bchain.Block, addresses add
 		for i, output := range tx.Vout {
 			tao := &ta.Outputs[i]
 			tao.ValueSat = output.ValueSat
-			glog.Infof("****8 %v %v %v", i, txi, time.Now().Sub(start))
 			addrDesc, err := d.chainParser.GetAddrDescFromVout(&output)
 			if err != nil || len(addrDesc) == 0 || len(addrDesc) > maxAddrDescLen {
 				if err != nil {
@@ -736,18 +725,15 @@ func (d *RocksDB) processAddressesBitcoinType(block *bchain.Block, addresses add
 				}
 				continue
 			}
-			glog.Infof("****3 %v %v %v", i, txi, time.Now().Sub(start))
 			tao.AddrDesc = addrDesc
 			if d.chainParser.IsAddrDescIndexable(addrDesc) {
 				strAddrDesc := string(addrDesc)
 				balance, e := balances[strAddrDesc]
-				glog.Infof("****4 %v %v %v", i, txi, time.Now().Sub(start))
 				if !e {
 					balance, err = d.GetAddrDescBalance(addrDesc, addressBalanceDetailUTXOIndexed)
 					if err != nil {
 						return err
 					}
-					glog.Infof("****5 %v %v %v", i, txi, time.Now().Sub(start))
 					if balance == nil {
 						balance = &AddrBalance{}
 					}
@@ -756,7 +742,6 @@ func (d *RocksDB) processAddressesBitcoinType(block *bchain.Block, addresses add
 				} else {
 					d.cbs.balancesHit++
 				}
-				glog.Infof("****6 %v %v %v", i, txi, time.Now().Sub(start))
 				balance.BalanceSat.Add(&balance.BalanceSat, &output.ValueSat)
 				balance.addUtxo(&Utxo{
 					BtxID:    btxID,
@@ -768,10 +753,8 @@ func (d *RocksDB) processAddressesBitcoinType(block *bchain.Block, addresses add
 				if !counted {
 					balance.Txs++
 				}
-				glog.Infof("****7 %v %v %v", i, txi, time.Now().Sub(start))
 			}
 		}
-		glog.Infof("**** %v %v", txi, time.Now().Sub(start))
 	}
 	// process inputs
 	for txi := range block.Txs {
@@ -854,7 +837,6 @@ func (d *RocksDB) processAddressesBitcoinType(block *bchain.Block, addresses add
 				balance.SentSat.Add(&balance.SentSat, &spentOutput.ValueSat)
 			}
 		}
-		glog.Infof("#### %v %v", txi, time.Now().Sub(start))
 	}
 	return nil
 }
