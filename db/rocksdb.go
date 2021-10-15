@@ -723,6 +723,7 @@ func (d *RocksDB) processAddressesBitcoinType(block *bchain.Block, addresses add
 		for i, output := range tx.Vout {
 			tao := &ta.Outputs[i]
 			tao.ValueSat = output.ValueSat
+			glog.Infof("****8 %v %v %v", i, txi, time.Now().Sub(start))
 			addrDesc, err := d.chainParser.GetAddrDescFromVout(&output)
 			if err != nil || len(addrDesc) == 0 || len(addrDesc) > maxAddrDescLen {
 				if err != nil {
@@ -735,15 +736,18 @@ func (d *RocksDB) processAddressesBitcoinType(block *bchain.Block, addresses add
 				}
 				continue
 			}
+			glog.Infof("****3 %v %v %v", i, txi, time.Now().Sub(start))
 			tao.AddrDesc = addrDesc
 			if d.chainParser.IsAddrDescIndexable(addrDesc) {
 				strAddrDesc := string(addrDesc)
 				balance, e := balances[strAddrDesc]
+				glog.Infof("****4 %v %v %v", i, txi, time.Now().Sub(start))
 				if !e {
 					balance, err = d.GetAddrDescBalance(addrDesc, addressBalanceDetailUTXOIndexed)
 					if err != nil {
 						return err
 					}
+					glog.Infof("****5 %v %v %v", i, txi, time.Now().Sub(start))
 					if balance == nil {
 						balance = &AddrBalance{}
 					}
@@ -752,6 +756,7 @@ func (d *RocksDB) processAddressesBitcoinType(block *bchain.Block, addresses add
 				} else {
 					d.cbs.balancesHit++
 				}
+				glog.Infof("****6 %v %v %v", i, txi, time.Now().Sub(start))
 				balance.BalanceSat.Add(&balance.BalanceSat, &output.ValueSat)
 				balance.addUtxo(&Utxo{
 					BtxID:    btxID,
@@ -763,6 +768,7 @@ func (d *RocksDB) processAddressesBitcoinType(block *bchain.Block, addresses add
 				if !counted {
 					balance.Txs++
 				}
+				glog.Infof("****7 %v %v %v", i, txi, time.Now().Sub(start))
 			}
 		}
 		glog.Infof("**** %v %v", txi, time.Now().Sub(start))
