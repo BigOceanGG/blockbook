@@ -709,10 +709,12 @@ func (d *RocksDB) processAddressesBitcoinType(block *bchain.Block, addresses add
 	// first process all outputs so that inputs can refer to txs in this block
 	for txi := range block.Txs {
 		tx := &block.Txs[txi]
+		glog.Infof("****1 %v %v", txi, time.Now().Sub(start))
 		btxID, err := d.chainParser.PackTxid(tx.Txid)
 		if err != nil {
 			return err
 		}
+		glog.Infof("****2 %v %v", txi, time.Now().Sub(start))
 		blockTxIDs[txi] = btxID
 		ta := TxAddresses{Height: block.Height}
 		ta.Outputs = make([]TxOutput, len(tx.Vout))
