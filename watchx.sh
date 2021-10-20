@@ -13,6 +13,6 @@ while true; do
 
         MEM=`free | awk '/Mem/ {print $7}'`
         echo "watch ${PRO_NAME} ${NUM}"
-        sleep 60
+        sleep 30
 
 done
