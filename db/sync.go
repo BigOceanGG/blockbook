@@ -328,11 +328,12 @@ func (w *SyncWorker) ConnectBlocksParallel(lower, higher uint32) error {
 				if b.Height != lastBlock+1 {
 					glog.Fatal("writeBlockWorker skipped block, expected block ", lastBlock+1, ", new block ", b.Height)
 				}
+				start := time.Now()
 				err := bc.ConnectBlock(b, b.Height+keep > higher)
 				if err != nil {
 					glog.Fatal("writeBlockWorker ", b.Height, " ", b.Hash, " error ", err)
 				}
-				glog.Info("finish BlocksParallel ", b.Height)
+				glog.Info("finish BlocksParallel ", b.Height, " : ", time.Now().Sub(start))
 				lastBlock = b.Height
 			case <-terminating:
 				break WriteBlockLoop
