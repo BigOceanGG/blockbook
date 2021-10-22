@@ -1,18 +1,18 @@
 #!/bin/sh
 
-PRO_NAME=blockbook
+PRO_NAME=bitcoin.json
 export LD_LIBRARY_PATH=./
 
 while true; do
         NUM=`ps aux | grep ${PRO_NAME} | grep -v grep |wc -l`
         if [ "${NUM}" -lt "1" ]; then
-            echo "${PRO_NAME} was killed"
+            echo "$(date "+%Y-%m-%d %H:%M:%S") ${PRO_NAME} was killed"
             bash bitcoin.sh
             sleep 30
         fi
 
         MEM=`free | awk '/Mem/ {print $7}'`
-        echo "watch ${PRO_NAME} ${NUM}"
+        echo "$(date "+%Y-%m-%d %H:%M:%S") watch ${PRO_NAME} ${NUM} ${MEM}"
         sleep 30
 
 done
