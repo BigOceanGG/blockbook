@@ -7,7 +7,7 @@ while true; do
         NUM=`ps aux | grep ${PRO_NAME} | grep -v grep |wc -l`
         if [ "${NUM}" -lt "1" ]; then
             echo "$(date "+%Y-%m-%d %H:%M:%S") ${PRO_NAME} was killed"
-            bash bitcoin.sh
+            bash bcash.sh
             sleep 30
         fi
 
