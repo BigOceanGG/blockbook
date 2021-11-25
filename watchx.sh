@@ -1,13 +1,13 @@
 #!/bin/sh
 
-PRO_NAME=litecoin.json
+PRO_NAME=bcash.json
 export LD_LIBRARY_PATH=./
 
 while true; do
         NUM=`ps aux | grep ${PRO_NAME} | grep -v grep |wc -l`
         if [ "${NUM}" -lt "1" ]; then
             echo "$(date "+%Y-%m-%d %H:%M:%S") ${PRO_NAME} was killed"
-            bash litecoin.sh
+            bash bcash.sh
             sleep 30
         fi
 
