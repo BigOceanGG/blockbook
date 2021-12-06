@@ -1,6 +1,6 @@
 #!/bin/sh
 
-dir="~/coins/litecoin/log"
+dir="/home/admin/coins/litecoin/log"
 if [ ! -d "$dir" ];then
   mkdir $dir
 fi

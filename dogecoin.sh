@@ -1,6 +1,6 @@
 #!/bin/sh
 
-dir="~/coins/dogecoin/log"
+dir="/home/admin/coins/dogecoin/log"
 if [ ! -d "$dir" ];then
   mkdir $dir
 fi

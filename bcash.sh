@@ -1,6 +1,6 @@
 #!/bin/sh
 
-dir="~/coins/bcash/log"
+dir="/home/admin/coins/bcash/log"
 if [ ! -d "$dir" ];then
   mkdir $dir
 fi

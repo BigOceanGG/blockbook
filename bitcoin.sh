@@ -1,6 +1,6 @@
 #!/bin/sh
 
-dir="~/bitcoin-22.0/log"
+dir="/home/ubuntu/bitcoin-22.0/log"
 if [ ! -d "$dir" ];then
   mkdir $dir
 fi
