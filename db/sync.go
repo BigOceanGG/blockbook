@@ -286,7 +286,7 @@ func (w *SyncWorker) connectBlocks(onNewBlock bchain.OnNewBlockFunc, initialSync
 	}
 
 	if lastRes.block != nil {
-		glog.Infof("resync: synced at %d %s", lastRes.block.Height, lastRes.block.Hash)
+		glog.Infof("resync: synced at %d : %d %s", lastRes.block.Height-w.startHeight+1, lastRes.block.Height, lastRes.block.Hash)
 	}
 
 	return nil
