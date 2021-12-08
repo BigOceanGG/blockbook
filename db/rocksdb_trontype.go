@@ -6,9 +6,9 @@ import (
 	"github.com/trezor/blockbook/bchain/coins/trx"
 
 	vlq "github.com/bsm/go-vlq"
+	"github.com/flier/gorocksdb"
 	"github.com/golang/glog"
 	"github.com/juju/errors"
-	"github.com/tecbot/gorocksdb"
 	"github.com/trezor/blockbook/bchain"
 )
 
